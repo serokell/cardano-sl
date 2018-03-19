@@ -463,24 +463,27 @@ createCommandProcs hasAuxxMode printAction mDiffusion = rights . fix $ \commands
     , cpExec = \() -> do
         sks <- getSecretKeysPlain
         printAction "Available addresses:"
-        for_ (zip [0 :: Int ..] sks) $ \(i, sk) -> do
+
+        addrList <- forM (zip [0 :: Int ..] sks) $ \(i, sk) -> do
             let pk = encToPublic sk
             addr <- makePubKeyAddressAuxx pk
             addrHD <- deriveHDAddressAuxx sk
+
             printAction $
                 sformat ("    #"%int%":   addr:      "%build%"\n"%
-                         "          pk:        "%fullPublicKeyF%"\n"%
-                         "          pk hash:   "%hashHexF%"\n"%
-                         "          HD addr:   "%build)
+                          "          pk:        "%fullPublicKeyF%"\n"%
+                          "          pk hash:   "%hashHexF%"\n"%
+                          "          HD addr:   "%build)
                     i addr pk (addressHash pk) addrHD
+            return addr
         walletMB <- (^. usWallet) <$> (view userSecret >>= atomically . readTVar)
         whenJust walletMB $ \wallet -> do
             addrHD <- deriveHDAddressAuxx (_wusRootKey wallet)
             printAction $
                 sformat ("    Wallet address:\n"%
-                         "          HD addr:   "%build)
+                          "          HD addr:   "%build)
                     addrHD
-        return ValueUnit
+        return $ ValueList $ ValueAddress <$> addrList
     , cpHelp = ""
     },
 
