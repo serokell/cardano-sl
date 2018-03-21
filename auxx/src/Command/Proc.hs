@@ -54,12 +54,13 @@ import           Mode (MonadAuxxMode, deriveHDAddressAuxx, makePubKeyAddressAuxx
 import           Repl (PrintAction)
 
 createCommandProcs ::
-       forall m. (HasCompileInfo, MonadIO m, CanLog m, HasLoggerName m)
-    => Maybe (Dict (MonadAuxxMode m))
+    forall m. (HasCompileInfo, Monad m)
+    => Maybe (Dict (MonadIO m, CanLog m, HasLoggerName m))
+    -> Maybe (Dict (MonadAuxxMode m))
     -> PrintAction m
     -> Maybe (Diffusion m)
     -> [CommandProc m]
-createCommandProcs hasAuxxMode printAction mDiffusion = rights . fix $ \commands -> [
+createCommandProcs hasMonadIO hasAuxxMode printAction mDiffusion = rights . fix $ \commands -> [
 
     return CommandProc
     { cpName = "L"
@@ -342,9 +343,11 @@ createCommandProcs hasAuxxMode printAction mDiffusion = rights . fix $ \commands
     , cpHelp = "propose an update with one positive vote for it \
                \ using secret key #i"
     },
-
+    
+    let name = "hash-installer" in
+    needMonadIO name >>= \Dict ->
     return CommandProc
-    { cpName = "hash-installer"
+    { cpName = name
     , cpArgumentPrepare = identity
     , cpArgumentConsumer = getArg tyFilePath "file"
     , cpExec = \filePath -> do
@@ -497,6 +500,9 @@ createCommandProcs hasAuxxMode printAction mDiffusion = rights . fix $ \commands
     , cpHelp = "display this message"
     }]
   where
+    needMonadIO :: Name -> Either UnavailableCommand (Dict (MonadIO m, CanLog m, HasLoggerName m))
+    needMonadIO name = 
+        maybe (Left $ UnavailableCommand name "MonadIO is not available") Right hasMonadIO 
     needsAuxxMode :: Name -> Either UnavailableCommand (Dict (MonadAuxxMode m))
     needsAuxxMode name =
         maybe (Left $ UnavailableCommand name "AuxxMode is not available") Right hasAuxxMode

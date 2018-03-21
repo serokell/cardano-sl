@@ -5,6 +5,7 @@
 
 module Plugin
        ( auxxPlugin
+       , ppValue
        , rawExec
        ) where
 
@@ -14,6 +15,8 @@ import           Universum
 import           System.Exit (ExitCode (ExitSuccess))
 import           System.Posix.Process (exitImmediately)
 #endif
+import           Data.Constraint (Dict(..))
+import           Formatting (float, int, char, stext, sformat, (%))
 import           Control.Monad.Except (ExceptT (..), withExceptT)
 import           Data.Constraint (Dict (..))
 import           Formatting (float, int, sformat, (%))
@@ -108,7 +111,7 @@ runCmd ::
     -> Text
     -> m ()
 runCmd mHasAuxxMode mDiffusion printAction line = do
-    let commandProcs = createCommandProcs mHasAuxxMode printAction mDiffusion
+    let commandProcs = createCommandProcs (Just Dict) mHasAuxxMode printAction mDiffusion
         parse = withExceptT Lang.ppParseError . ExceptT . return . Lang.parse
         resolveCommandProcs =
             withExceptT Lang.ppResolveErrors . ExceptT . return .
@@ -117,29 +120,39 @@ runCmd mHasAuxxMode mDiffusion printAction line = do
         pipeline = parse >=> resolveCommandProcs >=> evaluate
     runExceptT (pipeline line) >>= \case
         Left errDoc -> printAction (Lang.renderAuxxDoc errDoc)
-        Right value -> withValueText printAction value
+        Right value -> (printAction . ppValue) value 
 
-withValueText :: Monad m => (Text -> m ()) -> Lang.Value -> m ()
-withValueText cont = \case
-    Lang.ValueUnit -> return ()
-    Lang.ValueNumber n -> cont (sformat float n)
-    Lang.ValueString s -> cont (toText s)
-    Lang.ValueBool b -> cont (pretty b)
-    Lang.ValueAddress a -> cont (pretty a)
-    Lang.ValuePublicKey pk -> cont (sformat fullPublicKeyF pk)
-    Lang.ValueTxOut txOut -> cont (pretty txOut)
-    Lang.ValueStakeholderId sId -> cont (sformat hashHexF sId)
-    Lang.ValueHash h -> cont (sformat hashHexF (getAHash h))
-    Lang.ValueBlockVersion v -> cont (pretty v)
-    Lang.ValueSoftwareVersion v -> cont (pretty v)
-    Lang.ValueBlockVersionModifier bvm -> cont (pretty bvm)
-    Lang.ValueBlockVersionData bvd -> cont (pretty bvd)
-    Lang.ValueProposeUpdateSystem pus -> cont (show pus)
-    Lang.ValueAddrDistrPart adp -> cont (show adp)
-    Lang.ValueAddrStakeDistribution asd -> cont (pretty asd)
-    Lang.ValueFilePath s -> cont (toText s)
-    Lang.ValueList vs -> for_ vs $
-        withValueText (cont . mappend "  ")
+ppValue :: Lang.Value -> Text
+ppValue = \case
+    Lang.ValueUnit -> ""
+    Lang.ValueNumber n -> (sformat float n)
+    Lang.ValueString s -> sformat (char % stext % char) '\"' (toText s) '\"'
+    Lang.ValueBool b -> printBool b
+    Lang.ValueAddress a ->  (pretty a)
+    Lang.ValuePublicKey pk ->  (sformat fullPublicKeyF pk)
+    Lang.ValueTxOut txOut -> ("tx-out " <> (pretty txOut))
+    Lang.ValueStakeholderId sId ->  (sformat hashHexF sId)
+    Lang.ValueHash h ->  (sformat hashHexF (getAHash h))
+    Lang.ValueBlockVersion v ->  (pretty v)
+    Lang.ValueSoftwareVersion v -> ("~software~" <> (pretty v))
+    Lang.ValueBlockVersionModifier bvm ->  (pretty bvm)
+    Lang.ValueBlockVersionData bvd ->  (pretty bvd)
+    Lang.ValueProposeUpdateSystem pus ->  (show pus)
+    Lang.ValueAddrDistrPart adp ->  (show adp)
+    Lang.ValueAddrStakeDistribution asd ->  (pretty asd)
+    Lang.ValueFilePath s ->  (toText s)
+    Lang.ValueList vs -> foldMap ((mappend "  ") . ppValue) vs
+
+-- need to implement printCommand with polymorphic input:
+-- BlockVersionModifier or
+-- BlockVersionData or
+-- ProposeUpdateSystem or
+-- AddrDistrPart or
+-- AddrStakeDistribution or 
+-- TxOut -> Text
+printBool :: Bool -> Text
+printBool True = "true"
+printBool False = "false"
 
 ----------------------------------------------------------------------------
 -- Extra logging
