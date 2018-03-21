@@ -194,12 +194,22 @@ test-suite cardano-auxx-test
                        Test.Auxx.Lang.LexerSpec
                        Test.Auxx.Lang.ParserSpec
 
+                       -- Printer
+                       Test.Auxx.Printer.PrinterSpec
+
+
   type:                exitcode-stdio-1.0
   build-depends:
                        QuickCheck
+                     , ansi-wl-pprint
+                     , base
+                     , bytestring
+                     , constraints
                      , cardano-sl-auxx
                      , cardano-sl-core
                      , cardano-sl-crypto
+                     , cardano-sl-util
+                     , mtl
                      , hspec
                      , universum >= 0.1.11
 

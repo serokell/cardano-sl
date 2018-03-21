@@ -38,7 +38,9 @@ import           Control.Concurrent.Async (race_)
 import           Control.Exception.Safe (displayException, handleAsync)
 import           Data.Text (strip)
 import           System.Console.Haskeline (InputT)
+import           Lang.Value (Value (..))
 import qualified System.Console.Haskeline as Haskeline
+
 
 -- | An action used to print messages to the terminal. We can't hardcode
 -- 'putText' because Haskeline defines its own printing method.
