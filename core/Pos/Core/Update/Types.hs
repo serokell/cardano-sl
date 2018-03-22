@@ -60,6 +60,7 @@ import qualified Prelude
 import           Serokell.AcidState ()
 import           Serokell.Data.Memory.Units (Byte, memory)
 import           Serokell.Util.Text (listJson)
+import           Text.Read (Read, readPrec)
 
 import           Pos.Binary.Class (Bi, Raw)
 import           Pos.Core.Common (CoinPortion, ScriptVersion, TxFeePolicy, addressHash)
@@ -150,7 +151,7 @@ data SoftforkRule = SoftforkRule
     -- this one).
     , srThdDecrement :: !CoinPortion
     -- ^ Theshold will be decreased by this value after each epoch.
-    } deriving (Show, Eq, Ord, Generic)
+    } deriving (Show, Eq, Ord, Generic, Read)
 
 instance Hashable SoftforkRule
 instance NFData SoftforkRule
@@ -176,7 +177,11 @@ data BlockVersionData = BlockVersionData
     , bvdSoftforkRule      :: !SoftforkRule
     , bvdTxFeePolicy       :: !TxFeePolicy
     , bvdUnlockStakeEpoch  :: !EpochIndex
-    } deriving (Show, Eq, Ord, Generic, Typeable)
+    } deriving (Show, Eq, Ord, Generic, Typeable, Read)
+
+-- TEMPORARY 
+instance Read Byte where
+    readPrec = fromInteger <$> readPrec
 
 instance NFData BlockVersionData where
 

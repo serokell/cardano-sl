@@ -11,12 +11,13 @@ import           Universum
 import           Data.Fixed (Fixed (..), Nano, showFixed)
 import           Data.Hashable (Hashable)
 import qualified Data.Text.Buildable as Buildable
+import           Text.Read (Read)
 import           Formatting (bprint, build, shown, (%))
 import           Serokell.Data.Memory.Units (Byte, toBytes)
 
 -- | A fractional coefficient of fixed precision.
 newtype Coeff = Coeff Nano
-    deriving (Eq, Ord, Show, Generic, NFData, Num)
+    deriving (Eq, Ord, Show, Generic, NFData, Num, Read)
 
 instance Buildable Coeff where
     build (Coeff x) = fromString (showFixed True x)
@@ -25,7 +26,7 @@ instance Buildable Coeff where
 -- function where @s@ is the transaction size in bytes, @a@ and @b@ are
 -- constant coefficients.
 data TxSizeLinear = TxSizeLinear !Coeff !Coeff
-    deriving (Eq, Ord, Show, Generic)
+    deriving (Eq, Ord, Show, Generic, Read)
 
 instance NFData TxSizeLinear
 
@@ -60,7 +61,7 @@ txSizeLinearMinValue (TxSizeLinear (Coeff minVal) _) = minVal
 data TxFeePolicy
     = TxFeePolicyTxSizeLinear !TxSizeLinear
     | TxFeePolicyUnknown !Word8 !ByteString
-    deriving (Eq, Ord, Show, Generic)
+    deriving (Eq, Ord, Show, Generic, Read)
 
 instance NFData TxFeePolicy
 

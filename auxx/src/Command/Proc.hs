@@ -14,6 +14,7 @@ import qualified Data.Map as Map
 import           Formatting (build, int, sformat, stext, (%))
 import           System.Wlog (CanLog, HasLoggerName, logError, logInfo, logWarning)
 import qualified Text.JSON.Canonical as CanonicalJSON
+import           Text.Read (read)
 
 import           Pos.Client.KeyStorage (addSecretKey, getSecretKeysPlain)
 import           Pos.Client.Txp.Balances (getBalance)
@@ -26,7 +27,7 @@ import           Pos.Crypto (PublicKey, emptyPassphrase, encToPublic, fullPublic
                              noPassEncrypt, safeCreatePsk, unsafeCheatingHashCoerce, withSafeSigner)
 import           Pos.DB.Class (MonadGState (..))
 import           Pos.Diffusion.Types (Diffusion (..))
-import           Pos.Update (BlockVersionModifier (..))
+import           Pos.Update (BlockVersionModifier (..), BlockVersionData)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.UserSecret (WalletUserSecret (..), readUserSecret, usKeys, usPrimKey,
                                       usWallet, userSecret)
@@ -41,7 +42,7 @@ import           Command.TyProjection (tyAddrDistrPart, tyAddrStakeDistr, tyAddr
                                        tyBool, tyByte, tyCoin, tyCoinPortion, tyEither,
                                        tyEpochIndex, tyFilePath, tyHash, tyInt,
                                        tyProposeUpdateSystem, tyPublicKey, tyScriptVersion,
-                                       tySecond, tySoftwareVersion, tyStakeholderId,
+                                       tySecond, tyString, tySoftwareVersion, tyStakeholderId,
                                        tySystemTag, tyTxOut, tyValue, tyWord, tyWord32)
 import qualified Command.Update as Update
 import           Lang.Argument (getArg, getArgMany, getArgOpt, getArgSome, typeDirectedKwAnn)
@@ -302,6 +303,19 @@ createCommandProcs hasMonadIO hasAuxxMode printAction mDiffusion = rights . fix 
         pure ProposeUpdateSystem{..}
     , cpExec = return . ValueProposeUpdateSystem
     , cpHelp = "construct a part of the update proposal for binary update"
+    },
+
+    -- FIXME
+    let name = "bvd-read" in
+    return CommandProc
+    { cpName = name
+    , cpArgumentPrepare = identity
+    , cpArgumentConsumer = do
+        bvdStr <- getArg tyString "value"
+        pure ((read bvdStr) :: BlockVersionData)
+    , cpExec = \bvd -> do
+        return $ ValueBlockVersionData bvd
+    , cpHelp = "Construct a ValueBlockVersionData"
     },
 
     let name = "software" in
