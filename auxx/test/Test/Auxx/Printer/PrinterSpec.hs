@@ -93,14 +93,18 @@ expressions = [ Lang.ExprUnit
               , Lang.ExprLit (Lang.LitAddress $ genUnsafe arbitrary)
               , Lang.ExprLit (Lang.LitPublicKey $ genUnsafe arbitrary)
               , Lang.ExprLit (Lang.LitHash $ genUnsafe arbitrary)
+              , Lang.ExprLit (Lang.LitStakeholderId $ genUnsafe arbitrary)
               , Lang.ExprLit (Lang.LitBlockVersion $ genUnsafe arbitrary)
+              , Lang.ExprLit (Lang.LitSoftwareVersion $ genUnsafe arbitrary)
               , Lang.ExprLit (Lang.LitFilePath "/kkk")]
   where
     genUnsafe = unsafePerformIO . generate
 
     procCall = Lang.ProcCall "foo" [Lang.ArgKw "argName" (Lang.ExprLit (Lang.LitString "argValue")), (Lang.ArgPos (Lang.ExprLit (Lang.LitString "posValue")))]
     procCallWithFunc = Lang.ProcCall "foo" [Lang.ArgKw "argName" (Lang.ExprLit (Lang.LitString "argValue")), (Lang.ArgPos (Lang.ExprProcCall procCall))]
--- (LitNumber a) = (sformat float a)
+
+
+    -- (LitNumber a) = (sformat float a)
 -- f          (LitString a) = sformat (char % stext % char) '\"' (toText a) '\"'
 -- f         (LitAddress a) = (pretty a)
 -- f       (LitPublicKey a) = (sformat fullPublicKeyF a)

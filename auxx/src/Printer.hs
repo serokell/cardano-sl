@@ -25,8 +25,9 @@ pprLit = f
     f   (LitStakeholderId a) = (sformat hashHexF a)
     f            (LitHash a) = (sformat hashHexF (getAHash a))
     f    (LitBlockVersion a) = (pretty a)
-    f (LitSoftwareVersion a) = printSoftware a
+    f (LitSoftwareVersion a) = "~software~" <> pretty a
     f        (LitFilePath a) = (pretty a)
+
 
 pprExpr :: Expr Name -> Text
 pprExpr = f
