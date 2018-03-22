@@ -173,7 +173,6 @@ printBVD :: BlockVersionData -> Text
 printBVD bvd = sformat ("bvd-read value: "%char%stext%char) '\"' (show bvd) '\"'
 
 
-
 -- printTxOut :: TxOut -> Text
 -- printTxOut TxOut {..} = sformat ("tx-out addr: "%stext %" value " %stext) (show txOutAddress) (show txOutValue)
 

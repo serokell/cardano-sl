@@ -56,7 +56,7 @@ gExpr = mdo
         , ntExprAtom
         , pure ExprUnit
         ] <?> "expression"
-    ntExpr <- rule $ ExprGroup <$> ntExpr1 `sepBy1` tok _TokenSemicolon
+    ntExpr <- rule $ mkExprGroup <$> ntExpr1 `sepBy1` tok _TokenSemicolon
     ntProcCall <- rule $ ProcCall <$> ntName <*> some ntArg <?> "procedure call"
     ntProcCall0 <- rule $
         (\name -> ExprProcCall $ ProcCall name []) <$> ntName
@@ -67,6 +67,9 @@ gExpr = mdo
         , inBrackets _TokenParenthesis ntExpr <?> "parenthesized expression"
         ] <?> "atom"
     return ntExpr
+
+mkExprGroup (a :| []) = a
+mkExprGroup g = ExprGroup g
 
 pExpr :: Parser Text [(s, Token)] (Expr Name)
 pExpr = parser gExpr

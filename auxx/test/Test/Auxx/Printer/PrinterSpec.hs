@@ -68,30 +68,36 @@ exprPrinter expr = runIdentity $ exprPrinterId
     exprPrinterId = do
         eithParsed <- (parseBack . pprExpr) expr
         return $ eithParsed `shouldBe` (Right expr)
-      where
-        parseBack :: Text -> Identity (Either Doc (Expr Name))
-        parseBack line = withCompileInfo $(retrieveCompileTimeInfo) $ do
-            let
-                printAction line = return ()
-                commandProcs = createCommandProcs Nothing Nothing printAction Nothing :: [Lang.CommandProc Identity]
 
-                parse = withExceptT Lang.ppParseError . ExceptT . return . Lang.parse
-            runExceptT (parse line) >>= \case
-                Left errDoc ->
-                    let
-                        errMsg = ((text . toString) line PP.<$> errDoc)
-                    in return $ Left errMsg
-                Right expr -> return $ Right expr
+parseBack :: Text -> Identity (Either Doc (Expr Name))
+parseBack line = withCompileInfo $(retrieveCompileTimeInfo) $ do
+    let
+        printAction line = return ()
+        commandProcs = createCommandProcs Nothing Nothing printAction Nothing :: [Lang.CommandProc Identity]
+
+        parse = withExceptT Lang.ppParseError . ExceptT . return . Lang.parse
+    runExceptT (parse line) >>= \case
+        Left errDoc ->
+            let
+                errMsg = ((text . toString) line PP.<$> errDoc)
+            in return $ Left errMsg
+        Right expr -> return $ Right expr
 
 expressions :: [Expr Name]
-expressions = [ Lang.ExprGroup ((Lang.ExprLit (Lang.LitPublicKey $ genUnsafe arbitrary)):|[Lang.ExprLit (Lang.LitHash $ genUnsafe arbitrary)])
-              , Lang.ExprGroup ((Lang.ExprLit (Lang.LitPublicKey $ genUnsafe arbitrary)):|[Lang.ExprProcCall procCall])
-              , Lang.ExprGroup ((Lang.ExprLit (Lang.LitPublicKey $ genUnsafe arbitrary)):|[Lang.ExprProcCall procCallWithFunc])]
+expressions = [ Lang.ExprLit (Lang.LitNumber 555) 
+              , Lang.ExprGroup ((Lang.ExprLit (Lang.LitNumber 555)):|[Lang.ExprLit (Lang.LitHash $ genUnsafe arbitrary)])
+              , Lang.ExprGroup ((Lang.ExprLit (Lang.LitNumber 555)):|[Lang.ExprProcCall procCall])
+              , Lang.ExprGroup ((Lang.ExprLit (Lang.LitNumber 555)):|[Lang.ExprProcCall procCallWithFunc])]
   where
     genUnsafe = unsafePerformIO . generate
 
     procCall = Lang.ProcCall "foo" [Lang.ArgKw "argName" (Lang.ExprLit (Lang.LitString "argValue"))]
     procCallWithFunc = Lang.ProcCall "foo" [Lang.ArgKw "argName" (Lang.ExprLit (Lang.LitString "argValue")), (Lang.ArgPos (Lang.ExprProcCall procCall))]
+
+printTest :: IO ()
+printTest = forM_ expressions $ \ex -> do
+    putText $ pprExpr ex
+    putText ""
 
 instance Eq Doc
 
