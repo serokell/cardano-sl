@@ -84,15 +84,31 @@ parseBack line = withCompileInfo $(retrieveCompileTimeInfo) $ do
         Right expr -> return $ Right expr
 
 expressions :: [Expr Name]
-expressions = [ Lang.ExprLit (Lang.LitNumber 555) 
+expressions = [ Lang.ExprUnit
+              , Lang.ExprLit (Lang.LitNumber 555)
               , Lang.ExprGroup ((Lang.ExprLit (Lang.LitNumber 555)):|[Lang.ExprLit (Lang.LitHash $ genUnsafe arbitrary)])
               , Lang.ExprGroup ((Lang.ExprLit (Lang.LitNumber 555)):|[Lang.ExprProcCall procCall])
-              , Lang.ExprGroup ((Lang.ExprLit (Lang.LitNumber 555)):|[Lang.ExprProcCall procCallWithFunc])]
+              , Lang.ExprGroup ((Lang.ExprLit (Lang.LitNumber 555)):|[Lang.ExprProcCall procCallWithFunc])
+              , Lang.ExprLit (Lang.LitString "jjl")
+              , Lang.ExprLit (Lang.LitAddress $ genUnsafe arbitrary)
+              , Lang.ExprLit (Lang.LitPublicKey $ genUnsafe arbitrary)
+              , Lang.ExprLit (Lang.LitHash $ genUnsafe arbitrary)
+              , Lang.ExprLit (Lang.LitBlockVersion $ genUnsafe arbitrary)
+              , Lang.ExprLit (Lang.LitFilePath "/kkk")]
   where
     genUnsafe = unsafePerformIO . generate
 
-    procCall = Lang.ProcCall "foo" [Lang.ArgKw "argName" (Lang.ExprLit (Lang.LitString "argValue"))]
+    procCall = Lang.ProcCall "foo" [Lang.ArgKw "argName" (Lang.ExprLit (Lang.LitString "argValue")), (Lang.ArgPos (Lang.ExprLit (Lang.LitString "posValue")))]
     procCallWithFunc = Lang.ProcCall "foo" [Lang.ArgKw "argName" (Lang.ExprLit (Lang.LitString "argValue")), (Lang.ArgPos (Lang.ExprProcCall procCall))]
+-- (LitNumber a) = (sformat float a)
+-- f          (LitString a) = sformat (char % stext % char) '\"' (toText a) '\"'
+-- f         (LitAddress a) = (pretty a)
+-- f       (LitPublicKey a) = (sformat fullPublicKeyF a)
+-- f   (LitStakeholderId a) = (sformat hashHexF a)
+-- f            (LitHash a) = (sformat hashHexF (getAHash a))
+-- f    (LitBlockVersion a) = (pretty a)
+-- f (LitSoftwareVersion a) = printSoftware a
+-- f        (LitFilePath a)
 
 printTest :: IO ()
 printTest = forM_ expressions $ \ex -> do

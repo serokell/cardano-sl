@@ -26,12 +26,12 @@ pprLit = f
     f            (LitHash a) = (sformat hashHexF (getAHash a))
     f    (LitBlockVersion a) = (pretty a)
     f (LitSoftwareVersion a) = printSoftware a
-    f        (LitFilePath a) = (toText a)
+    f        (LitFilePath a) = (pretty a)
 
 pprExpr :: Expr Name -> Text
 pprExpr = f
   where
-    f ExprUnit          = "" -- FIXME
+    f ExprUnit          = sformat (stext) "()"
     f (ExprGroup exps)  = ppGroup exps
     f (ExprProcCall pc) = ppProcCall pc
     f (ExprLit l)       = pprLit l
