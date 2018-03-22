@@ -1,20 +1,32 @@
 module Printer
     ( pprLit
     , pprExpr
-    , ppExpr) where
+    , ppExpr
+    , pprValue
+    , valueToExpr
+    ) where
 
 import           Universum
 
+import qualified Data.Map as M (toList)
+import           Data.Scientific (Scientific)
+import           Data.Time.Units (Second, convertUnit)
 import           Formatting (build, float, sformat, stext, string, (%))
 import           Lang.DisplayError (nameToDoc, text)
+import           Prelude (ShowS)
+import           Text.PrettyPrint.ANSI.Leijen (Doc)
+import qualified Text.PrettyPrint.ANSI.Leijen as PP
+
 import           Lang.Name (Name)
 import           Lang.Syntax (Arg (..), AtLeastTwo (..), Expr (..), Lit (..), ProcCall (..),
                               toList_)
+import qualified Lang.Value as Lang
 import           Pos.Core (ApplicationName (..), SoftwareVersion (..))
+import           Pos.Core.Common (AddrStakeDistribution (..), Coin (..), CoinPortion (..),
+                                  coinPortionDenominator)
+import           Pos.Core.Txp (TxOut (..))
+import           Pos.Core.Update (BlockVersionData, BlockVersionModifier (..))
 import           Pos.Crypto (AHash (..), fullPublicKeyF, hashHexF)
-import           Text.PrettyPrint.ANSI.Leijen (Doc, char, indent, parens, punctuate, vsep)
-
-import qualified Text.PrettyPrint.ANSI.Leijen as PP
 
 pprLit :: Lit -> Text
 pprLit = f
@@ -33,6 +45,16 @@ pprLit = f
     printSoftware SoftwareVersion {..} =
         sformat ("software name: \""%stext%"\" n: "%build) (getApplicationName svAppName) svNumber
 
+type Indent = Int
+type Width = Int
+
+pprExpr :: Maybe Width -> Expr Name -> Text
+pprExpr Nothing      = pprExprNoIdent
+pprExpr (Just width) = showSToText . PP.displayS . PP.renderPretty 0.4 width . ppExpr
+  where
+    showSToText :: ShowS -> Text
+    showSToText s = toText (s "")
+
 pprExprNoIdent :: Expr Name -> Text
 pprExprNoIdent = f
   where
@@ -41,12 +63,10 @@ pprExprNoIdent = f
     f (ExprProcCall pc) = pprProcCall pc
     f (ExprLit l)       = pprLit l
 
-    pprProcCall (ProcCall name args) = (sformat build name)
-        <> " "
-        <> concatSpace args
+    pprProcCall (ProcCall name args) =
+        sformat (build%" "%build) name (concatSpace args)
 
-    concatSpace []     = ""
-    concatSpace (a:as) = (pprArg a) <> (concatSpace as)
+    concatSpace = foldMap pprArg
 
     pprArg (ArgPos pos)     = parensIfProcCall pos
     pprArg (ArgKw name val) = (sformat build name) <> ": " <> (parensIfProcCall val)
@@ -71,8 +91,8 @@ pprExprNoIdent = f
     parens_ :: Text -> Text
     parens_ t = sformat ("("%stext%")") t
 
-type Indent = Int
-type Width = Int
+pprValue :: Maybe Width -> Lang.Value -> Text
+pprValue mWidth = pprExpr mWidth . valueToExpr
 
 ppExpr :: Expr Name -> Doc
 ppExpr = f
@@ -83,13 +103,14 @@ ppExpr = f
     f (ExprLit l)       = text (pprLit l)
 
     ppGroup :: AtLeastTwo (Expr Name) -> Doc
-    ppGroup expsALT = parens $ vsep (punctuate (char ';') (fmap ppExpr (toList_ expsALT)))
+    ppGroup expsALT =
+        PP.parens $ PP.vsep (PP.punctuate (PP.char ';') (fmap ppExpr (toList_ expsALT)))
 
     ppProcCall :: Indent -> (ProcCall Name (Expr Name)) -> Doc
     ppProcCall i (ProcCall name args) =
         let
             nameDoc = nameToDoc name
-            argsDoc = indent i (vsep (fmap (ppArg i) args))
+            argsDoc = PP.indent i (PP.vsep (fmap (ppArg i) args))
         in
             nameDoc PP.<$> argsDoc
 
@@ -99,10 +120,88 @@ ppExpr = f
         (nameToDoc name) PP.<> (text ": ") PP.<> (parensIfProcCall i val)
 
     parensIfProcCall :: Indent -> Expr Name -> Doc
-    parensIfProcCall i (ExprProcCall pc) = parens (ppProcCall (i + 1) pc)
+    parensIfProcCall i (ExprProcCall pc) = PP.parens (ppProcCall (i + 1) pc)
     parensIfProcCall _ anything          = ppExpr anything
 
--- Do we need a width here?
-pprExpr :: Maybe Width -> Expr Name -> Text
-pprExpr Nothing  = pprExprNoIdent
-pprExpr (Just _) = show . ppExpr
+valueToExpr :: Lang.Value -> Expr Name
+valueToExpr = \case
+    Lang.ValueUnit                      -> ExprUnit
+    Lang.ValueNumber n                  -> ExprLit $ LitNumber n
+    Lang.ValueString s                  -> ExprLit $ LitString s
+    Lang.ValueBool b                    -> ExprProcCall $ ProcCall (boolToProcName b) []
+    Lang.ValueAddress a                 -> ExprLit $ LitAddress a
+    Lang.ValuePublicKey pk              -> ExprLit $ LitPublicKey pk
+    Lang.ValueTxOut txOut               -> ExprProcCall $ ProcCall "tx-out" $ txOutToArgs txOut
+    Lang.ValueStakeholderId sId         -> ExprLit $ LitStakeholderId sId
+    Lang.ValueHash h                    -> ExprLit $ LitHash h
+    Lang.ValueBlockVersion v            -> ExprLit $ LitBlockVersion v
+    Lang.ValueSoftwareVersion v         -> ExprLit $ LitSoftwareVersion v
+    Lang.ValueBlockVersionModifier bvm  -> ExprProcCall $ ProcCall "bvm" $ bvmToArgs bvm
+    Lang.ValueBlockVersionData bvd      -> ExprProcCall $ ProcCall "bvd-read" $ bvdToArgs bvd
+    Lang.ValueProposeUpdateSystem pus   -> ExprProcCall $ ProcCall "upd-bin" $ pusToArgs pus
+    Lang.ValueAddrDistrPart adp         -> ExprProcCall $ ProcCall "dp" $ adpToArgs adp
+    Lang.ValueAddrStakeDistribution asd -> ExprProcCall $ asdToProcCall asd
+    Lang.ValueFilePath s                -> ExprLit $ LitFilePath s
+    Lang.ValueList vs                   -> ExprProcCall $ ProcCall "L" $
+                                               map (ArgPos . valueToExpr) vs
+  where
+    boolToProcName :: Bool -> Name
+    boolToProcName = \case
+        True  -> "true"
+        False -> "false"
+    txOutToArgs :: TxOut -> [Arg (Expr Name)]
+    txOutToArgs TxOut {..} =
+        [ ArgPos (ExprLit $ LitAddress txOutAddress)
+        , ArgPos (ExprLit $ LitNumber $ fromIntegral $ getCoin txOutValue)
+        ]
+    coinPortionToScientific :: CoinPortion -> Scientific
+    coinPortionToScientific (getCoinPortion -> num) =
+        (fromIntegral num) / (fromIntegral coinPortionDenominator)
+    bvmToArgs :: BlockVersionModifier -> [Arg (Expr Name)]
+    bvmToArgs BlockVersionModifier {..} = catMaybes
+        [ ArgKw "script-version"      . ExprLit . LitNumber . fromIntegral <$> bvmScriptVersion
+        , ArgKw "slot-duration"       . ExprLit . LitNumber . fromIntegral . toSec <$> bvmSlotDuration
+        , ArgKw "max-block-size"      . ExprLit . LitNumber . fromIntegral <$> bvmMaxBlockSize
+        , ArgKw "max-header-size"     . ExprLit . LitNumber . fromIntegral <$> bvmMaxHeaderSize
+        , ArgKw "max-tx-size"         . ExprLit . LitNumber . fromIntegral <$> bvmMaxTxSize
+        , ArgKw "max-proposal-size"   . ExprLit . LitNumber . fromIntegral <$> bvmMaxProposalSize
+        , ArgKw "mpc-thd"             . ExprLit . LitNumber . coinPortionToScientific <$> bvmMpcThd
+        , ArgKw "heavy-del-thd"       . ExprLit . LitNumber . coinPortionToScientific <$> bvmHeavyDelThd
+        , ArgKw "update-vote-thd"     . ExprLit . LitNumber . coinPortionToScientific <$> bvmUpdateVoteThd
+        , ArgKw "update-proposal-thd" . ExprLit . LitNumber . coinPortionToScientific <$> bvmUpdateProposalThd
+        -- (see Proc.hs)
+        -- TODO bvmUpdateImplicit
+        -- TODO bvmSoftforkRule
+        -- TODO bvmTxFeePolicy
+        , ArgKw "unlock-stake-epoch"  . ExprLit . LitNumber . fromIntegral <$> bvmUnlockStakeEpoch
+        ]
+      where
+        toSec = convertUnit @_ @Second
+    bvdToArgs :: BlockVersionData -> [Arg (Expr Name)]
+    bvdToArgs bvd = [ArgPos $ ExprLit $ LitString $ show bvd]
+
+    pusToArgs :: Lang.ProposeUpdateSystem -> [Arg (Expr Name)]
+    pusToArgs Lang.ProposeUpdateSystem {..} = catMaybes
+        [ Just $ ArgPos $ ExprLit $ LitString $ show pusSystemTag
+        , ArgKw "installer-path" . ExprLit . LitFilePath <$> pusInstallerPath
+        , ArgKw "bin-diff-path"  . ExprLit . LitFilePath <$> pusBinDiffPath
+        ]
+
+    adpToArgs :: Lang.AddrDistrPart -> [Arg (Expr Name)]
+    adpToArgs Lang.AddrDistrPart {..} =
+        [ ArgPos (ExprLit $ LitStakeholderId adpStakeholderId)
+        , ArgPos (ExprLit $ LitNumber $ coinPortionToScientific adpCoinPortion)
+        ]
+
+    asdToProcCall :: AddrStakeDistribution -> ProcCall Name (Expr Name)
+    asdToProcCall = \case
+        BootstrapEraDistr -> ProcCall "boot" []
+        SingleKeyDistr sId ->
+            ProcCall "distr" [ArgPos $ adpToExpr $ Lang.AddrDistrPart sId maxBound]
+        UnsafeMultiKeyDistr mkd ->
+            ProcCall "distr" $
+                map (\(sId, cp) -> ArgPos $ adpToExpr $ Lang.AddrDistrPart sId cp) $
+                    M.toList mkd
+      where
+        adpToExpr :: Lang.AddrDistrPart -> Expr Name
+        adpToExpr = valueToExpr . Lang.ValueAddrDistrPart

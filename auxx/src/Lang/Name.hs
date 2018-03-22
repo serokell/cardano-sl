@@ -13,7 +13,7 @@ import           Data.Coerce (coerce)
 import qualified Data.List.NonEmpty as NonEmpty
 import           Data.List.Split (splitWhen)
 import qualified Data.Text.Buildable as Buildable
-import           Test.QuickCheck.Arbitrary.Generic (Arbitrary (..), genericArbitrary, genericShrink)
+import           Test.QuickCheck (Arbitrary (..), genericShrink)
 import           Test.QuickCheck.Gen (elements, suchThat)
 
 -- | Invariant: @isAlpha . getLetter = const True@

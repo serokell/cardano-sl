@@ -35,7 +35,11 @@ import           Universum
 
 import           Control.Lens (makePrisms)
 import           Data.Scientific (Scientific)
+import           Test.QuickCheck (Arbitrary (..))
+import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
+-- instance Arbitrary TxOut
+import           Pos.Arbitrary.Txp ()
 import           Pos.Core (AddrStakeDistribution, Address, BlockVersion, CoinPortion,
                            SoftwareVersion, StakeholderId)
 import           Pos.Core.Txp (TxOut)
@@ -46,6 +50,10 @@ data AddrDistrPart = AddrDistrPart
     { adpStakeholderId :: !StakeholderId
     , adpCoinPortion   :: !CoinPortion
     } deriving (Eq, Ord, Show, Generic)
+
+instance Arbitrary AddrDistrPart where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
 
 -- | Parameters for 'ProposeUpdate' command.
 data ProposeUpdateParams = ProposeUpdateParams
@@ -66,7 +74,11 @@ data ProposeUpdateSystem = ProposeUpdateSystem
     { pusSystemTag     :: SystemTag
     , pusInstallerPath :: Maybe FilePath
     , pusBinDiffPath   :: Maybe FilePath
-    } deriving (Eq, Ord, Show)
+    } deriving (Eq, Ord, Show, Generic)
+
+instance Arbitrary ProposeUpdateSystem where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
 
 data GenBlocksParams = GenBlocksParams
     { bgoBlockN :: !Word32
@@ -102,6 +114,10 @@ data Value
     | ValueAddrDistrPart AddrDistrPart
     | ValueAddrStakeDistribution AddrStakeDistribution
     | ValueFilePath FilePath
-    deriving (Eq, Ord, Show)
+    deriving (Eq, Ord, Show, Generic)
 
 makePrisms ''Value
+
+instance Arbitrary Value where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
