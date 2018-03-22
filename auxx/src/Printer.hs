@@ -4,9 +4,9 @@ module Printer
 
 import           Universum
 
+import           Formatting (build, char, float, int, sformat, stext, (%))
 import           Lang.Name (Name)
 import           Lang.Syntax (Arg (..), Expr (..), Lit (..), ProcCall (..))
-import           Formatting (build, char, float, int, sformat, stext, (%))
 import           Pos.Core (AddrStakeDistribution, Address, ApplicationName (..), BlockVersion,
                            CoinPortion, SoftwareVersion (..), StakeholderId)
 import           Pos.Core.Common (CoinPortion (..))
