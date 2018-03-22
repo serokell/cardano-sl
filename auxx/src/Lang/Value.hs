@@ -45,7 +45,7 @@ import           Pos.Update (BlockVersionData, BlockVersionModifier, SystemTag)
 data AddrDistrPart = AddrDistrPart
     { adpStakeholderId :: !StakeholderId
     , adpCoinPortion   :: !CoinPortion
-    } deriving (Eq, Ord, Show)
+    } deriving (Eq, Ord, Show, Generic)
 
 -- | Parameters for 'ProposeUpdate' command.
 data ProposeUpdateParams = ProposeUpdateParams

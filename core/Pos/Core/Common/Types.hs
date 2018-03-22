@@ -71,6 +71,7 @@ import qualified PlutusCore.Program as PLCore
 import           Serokell.Util (enumerate, listChunkedJson, pairBuilder)
 import           Serokell.Util.Base16 (formatBase16)
 import           System.Random (Random (..))
+import           Text.Read (Read)
 
 import           Pos.Core.Constants (sharedSeedLength)
 import           Pos.Crypto.Hashing (AbstractHash, Hash)
@@ -334,7 +335,7 @@ unsafeGetCoin = getCoin
 -- threshold).
 newtype CoinPortion = CoinPortion
     { getCoinPortion :: Word64
-    } deriving (Show, Ord, Eq, Generic, Typeable, NFData, Hashable)
+    } deriving (Show, Ord, Eq, Generic, Typeable, NFData, Hashable, Read)
 
 -- | Denominator used by 'CoinPortion'.
 coinPortionDenominator :: Word64

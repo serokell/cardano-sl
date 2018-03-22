@@ -35,6 +35,7 @@ library
                        Lang.Value
                        Mode
                        Plugin
+                       Printer
                        Repl
   build-depends:
                        QuickCheck
@@ -209,6 +210,7 @@ test-suite cardano-auxx-test
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-util
+                     , generic-arbitrary
                      , mtl
                      , hspec
                      , universum >= 0.1.11

@@ -30,7 +30,7 @@ import           Pos.Core.Slotting.Timestamp (TimeDiff (..), Timestamp (..))
 -- | Index of epoch.
 newtype EpochIndex = EpochIndex
     { getEpochIndex :: Word64
-    } deriving (Show, Eq, Ord, Num, Enum, Ix, Integral, Real, Generic, Hashable, Bounded, Typeable, NFData)
+    } deriving (Show, Eq, Ord, Num, Enum, Ix, Integral, Real, Generic, Hashable, Bounded, Typeable, NFData, Read)
 
 instance Buildable EpochIndex where
     build = bprint ("#"%int)

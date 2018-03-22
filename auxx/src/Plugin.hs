@@ -15,10 +15,10 @@ import           Universum
 import           System.Exit (ExitCode (ExitSuccess))
 import           System.Posix.Process (exitImmediately)
 #endif
-import           Data.Constraint (Dict(..))
-import           Formatting (float, int, char, stext, sformat, (%))
 import           Control.Monad.Except (ExceptT (..), withExceptT)
 import           Data.Constraint (Dict (..))
+import           Data.Constraint (Dict (..))
+import           Formatting (build, char, float, int, sformat, stext, (%))
 import           Formatting (float, int, sformat, (%))
 import           Mockable (Delay, Mockable, delay)
 import           Serokell.Util (sec)
@@ -26,6 +26,12 @@ import           System.IO (hFlush, stdout)
 import           System.Wlog (CanLog, HasLoggerName, logInfo)
 
 import           Pos.Communication (OutSpecs (..))
+import           Pos.Core (AddrStakeDistribution, Address, ApplicationName (..), BlockVersion,
+                           CoinPortion, SoftwareVersion (..), StakeholderId)
+-- import           Pos.Core.Update.Types (ApplicationName (..))
+import           Pos.Core.Common (CoinPortion (..))
+import           Pos.Core.Txp (TxOut (..))
+import           Pos.Core.Update (BlockVersionData)
 import           Pos.Crypto (AHash (..), fullPublicKeyF, hashHexF)
 import           Pos.Diffusion.Types (Diffusion)
 import           Pos.Txp (genesisUtxo, unGenesisUtxo)
@@ -120,7 +126,8 @@ runCmd mHasAuxxMode mDiffusion printAction line = do
         pipeline = parse >=> resolveCommandProcs >=> evaluate
     runExceptT (pipeline line) >>= \case
         Left errDoc -> printAction (Lang.renderAuxxDoc errDoc)
-        Right value -> (printAction . ppValue) value 
+        Right value -> (printAction . ppValue) value
+
 
 ppValue :: Lang.Value -> Text
 ppValue = \case
@@ -130,15 +137,15 @@ ppValue = \case
     Lang.ValueBool b -> printBool b
     Lang.ValueAddress a ->  (pretty a)
     Lang.ValuePublicKey pk ->  (sformat fullPublicKeyF pk)
-    Lang.ValueTxOut txOut -> ("tx-out " <> (pretty txOut))
+    Lang.ValueTxOut txOut -> (pretty txOut)
     Lang.ValueStakeholderId sId ->  (sformat hashHexF sId)
     Lang.ValueHash h ->  (sformat hashHexF (getAHash h))
     Lang.ValueBlockVersion v ->  (pretty v)
-    Lang.ValueSoftwareVersion v -> ("~software~" <> (pretty v))
+    Lang.ValueSoftwareVersion v -> printSoftware v
     Lang.ValueBlockVersionModifier bvm ->  (pretty bvm)
-    Lang.ValueBlockVersionData bvd ->  (pretty bvd)
+    Lang.ValueBlockVersionData bvd ->  printBVD bvd
     Lang.ValueProposeUpdateSystem pus ->  (show pus)
-    Lang.ValueAddrDistrPart adp ->  (show adp)
+    Lang.ValueAddrDistrPart adp ->  printAddrDistrPart adp
     Lang.ValueAddrStakeDistribution asd ->  (pretty asd)
     Lang.ValueFilePath s ->  (toText s)
     Lang.ValueList vs -> foldMap ((mappend "  ") . ppValue) vs
@@ -148,11 +155,27 @@ ppValue = \case
 -- BlockVersionData or
 -- ProposeUpdateSystem or
 -- AddrDistrPart or
--- AddrStakeDistribution or 
+-- AddrStakeDistribution or
 -- TxOut -> Text
 printBool :: Bool -> Text
-printBool True = "true"
+printBool True  = "true"
 printBool False = "false"
+
+printSoftware :: SoftwareVersion -> Text
+printSoftware SoftwareVersion {..} =
+    sformat ("software name: "%char%stext%char%" n: "%build) '\"' (getApplicationName svAppName) '\"' svNumber
+
+printAddrDistrPart :: Lang.AddrDistrPart -> Text
+printAddrDistrPart (Lang.AddrDistrPart sId cp) =
+    sformat ("dp s: "%char%stext%char%" p: "%build) '\"' (sformat hashHexF sId) '\"' (getCoinPortion cp)
+
+printBVD :: BlockVersionData -> Text
+printBVD bvd = sformat ("bvd-read value: "%char%stext%char) '\"' (show bvd) '\"'
+
+
+
+-- printTxOut :: TxOut -> Text
+-- printTxOut TxOut {..} = sformat ("tx-out addr: "%stext %" value " %stext) (show txOutAddress) (show txOutValue)
 
 ----------------------------------------------------------------------------
 -- Extra logging
