@@ -21,6 +21,8 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShr
 import           Lang (Expr, Name)
 import           Pos.Core (SoftwareVersion (..))
 import           Pos.Util.CompileInfo (retrieveCompileTimeInfo, withCompileInfo)
+import           Test.Hspec.QuickCheck (prop)
+import           Test.QuickCheck (Property, property)
 import           Text.PrettyPrint.ANSI.Leijen (Doc, text)
 
 
@@ -30,36 +32,16 @@ import qualified Text.PrettyPrint.ANSI.Leijen as PP
 spec :: Spec
 spec = describe "Auxx.Repl.ppValue" $ do
     traverse_ itHandles expressions
+    prop "hadles any Expr" propHandleRandomExpr
 
 itHandles :: (Expr Name) -> SpecWith (Arg Expectation)
 itHandles val = it ("handles " <> show val) $ exprPrinter val
 
--- unitPrinter :: Value -> Expectation
--- unitPrinter val = runIdentity $ unitPrinterMonadIO
---   where
---     unitPrinterMonadIO :: Identity Expectation
---     unitPrinterMonadIO = do
---         eithParsed <- (parseBack . ppValue) val
---         return $ eithParsed `shouldBe` (Right val)
---       where
---         parseBack :: Text -> Identity (Either Doc Value)
---         parseBack line = withCompileInfo $(retrieveCompileTimeInfo) $ do
---             let
---                 printAction line = return ()
---                 commandProcs = createCommandProcs Nothing Nothing printAction Nothing
-
---                 parse = withExceptT Lang.ppParseError . ExceptT . return . Lang.parse
---                 resolveCommandProcs =
---                     withExceptT Lang.ppResolveErrors . ExceptT . return .
---                     Lang.resolveCommandProcs commandProcs
---                 evaluate = withExceptT Lang.ppEvalError . ExceptT . Lang.evaluate
---                 pipeline = parse >=> resolveCommandProcs >=> evaluate
---             runExceptT (pipeline line) >>= \case
---                 Left errDoc ->
---                     let
---                         errMsg = ((text . toString) line PP.<$> errDoc)
---                     in return $ Left errMsg
---                 Right val -> return $ Right val
+propHandleRandomExpr :: Property
+propHandleRandomExpr = property $ ((\expr -> (parseBack_ . pprExpr) expr == (Right expr)) :: Expr Name -> Bool)
+  where
+    -- parseBack_ :: Text -> Expr Name
+    parseBack_ = runIdentity . parseBack
 
 exprPrinter :: Expr Name -> Expectation
 exprPrinter expr = runIdentity $ exprPrinterId
@@ -82,6 +64,25 @@ parseBack line = withCompileInfo $(retrieveCompileTimeInfo) $ do
                 errMsg = ((text . toString) line PP.<$> errDoc)
             in return $ Left errMsg
         Right expr -> return $ Right expr
+
+instance Arbitrary (Expr Name) where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
+
+instance Arbitrary (Lang.ProcCall Name (Expr Name)) where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
+
+instance Arbitrary (Lang.Lit) where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
+
+instance Arbitrary (Lang.Arg (Expr Name)) where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
+
+exprArbitrary :: Expr Name
+exprArbitrary = (unsafePerformIO . generate) arbitrary
 
 expressions :: [Expr Name]
 expressions = [ Lang.ExprUnit
@@ -115,7 +116,7 @@ expressions = [ Lang.ExprUnit
 -- f        (LitFilePath a)
 
 printTest :: IO ()
-printTest = forM_ expressions $ \ex -> do
+printTest = forM_ [exprArbitrary] $ \ex -> do
     putText $ pprExpr ex
     putText ""
 

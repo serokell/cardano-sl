@@ -39,7 +39,11 @@ pprExpr = f
 
     ppProcCall (ProcCall name args) = (sformat build name)
         <> " "
-        <> foldMap ((<> " ") . ppArg) args
+        <> concatSpace args
+
+    concatSpace []     = ""
+    concatSpace [arg]  = ppArg arg -- redundant
+    concatSpace (a:as) = (ppArg a) <> (concatSpace as)
 
     ppArg (ArgPos pos)     = pprExprNested pos
     ppArg (ArgKw name val) = (sformat build name) <> ": " <> (pprExpr val)

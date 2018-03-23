@@ -26,6 +26,8 @@ data Expr cmd
 deriving instance Eq cmd => Eq (Expr cmd)
 deriving instance Ord cmd => Ord (Expr cmd)
 deriving instance Show cmd => Show (Expr cmd)
+deriving instance Generic cmd => Generic (Expr cmd)
+
 
 data Lit
     = LitNumber Scientific
@@ -37,7 +39,7 @@ data Lit
     | LitBlockVersion BlockVersion
     | LitSoftwareVersion SoftwareVersion
     | LitFilePath FilePath
-    deriving (Eq, Ord, Show)
+    deriving (Eq, Ord, Show, Generic)
 
 data ProcCall cmd a = ProcCall cmd [Arg a]
     deriving (Functor, Foldable, Traversable)
@@ -45,6 +47,8 @@ data ProcCall cmd a = ProcCall cmd [Arg a]
 deriving instance (Eq cmd, Eq a) => Eq (ProcCall cmd a)
 deriving instance (Ord cmd, Ord a) => Ord (ProcCall cmd a)
 deriving instance (Show cmd, Show a) => Show (ProcCall cmd a)
+deriving instance (Generic cmd, Generic a) => Generic (ProcCall cmd a)
+
 
 data Arg a = ArgPos a | ArgKw Name a
     deriving (Functor, Foldable, Traversable)
@@ -52,3 +56,4 @@ data Arg a = ArgPos a | ArgKw Name a
 deriving instance Eq a => Eq (Arg a)
 deriving instance Ord a => Ord (Arg a)
 deriving instance Show a => Show (Arg a)
+deriving instance Generic a => Generic (Arg a)

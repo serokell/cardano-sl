@@ -68,6 +68,7 @@ gExpr = mdo
         ] <?> "atom"
     return ntExpr
 
+mkExprGroup :: NonEmpty (Expr cmd) -> Expr cmd
 mkExprGroup (a :| []) = a
 mkExprGroup g = ExprGroup g
 
