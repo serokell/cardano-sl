@@ -7,6 +7,8 @@ module Lang.DisplayError
     , ppProcError
     , ppResolveErrors
     , renderAuxxDoc
+    , text
+    , nameToDoc
     ) where
 
 import           Universum hiding (empty, (<$>))

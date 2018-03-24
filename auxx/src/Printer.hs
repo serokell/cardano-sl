@@ -5,7 +5,8 @@ module Printer
 import           Universum
 
 import           Data.Text as Text
-import           Formatting (build, char, float, int, sformat, stext, (%))
+import           Formatting (build, float, int, sformat, stext, (%))
+import           Lang.DisplayError (nameToDoc, text)
 import           Lang.Name (Name)
 import           Lang.Syntax (Arg (..), Expr (..), Lit (..), ProcCall (..))
 import           Pos.Core (AddrStakeDistribution, Address, ApplicationName (..), BlockVersion,
@@ -13,14 +14,19 @@ import           Pos.Core (AddrStakeDistribution, Address, ApplicationName (..),
 import           Pos.Core.Common (CoinPortion (..))
 import           Pos.Core.Update (BlockVersionData)
 import           Pos.Crypto (AHash (..), fullPublicKeyF, hashHexF)
+import           Text.PrettyPrint.ANSI.Leijen (Doc, char, empty, hcat, indent, nest, parens,
+                                               punctuate, red, squotes, vcat, vsep, yellow, (<$>),
+                                               (<+>))
 
+import qualified Data.List.NonEmpty as NE
 import qualified Lang
+import qualified Text.PrettyPrint.ANSI.Leijen as PP
 
 pprLit :: Lit -> Text
 pprLit = f
   where
     f          (LitNumber a) = (sformat float a)
-    f          (LitString a) = sformat (char % stext % char) '\"' (toText a) '\"'
+    f          (LitString a) = sformat ("\""%stext%"\"") (toText a)
     f         (LitAddress a) = (pretty a)
     f       (LitPublicKey a) = (sformat fullPublicKeyF a)
     f   (LitStakeholderId a) = (sformat hashHexF a)
@@ -54,11 +60,6 @@ pprExprNoIdent = f
     pprExprNoIdentNested anything          = pprExprNoIdentNested anything
 
     ppGroup :: NonEmpty (Expr Name) -> Text
-    -- ppGroup (AtLeastTwo a1 a2 as) = case as of
-    --     [] -> (pprExprNoIdent a1) <> "; " <> (pprExprNoIdent a2)
-    --   where
-    --     ppLast [] = ""
-    --     ppLast (x:xs)
     ppGroup (e:|es) = case (nonEmpty es) of
         Nothing  -> pprExprNoIdent e
         Just es_ -> (pprExprNoIdent e) <> "; " <> (ppGroup es_)
@@ -87,17 +88,10 @@ pprExprIdent w = f w
     ppArg _ (ArgKw name val) = sformat (build%": "%stext%"\n") name (pprExprIdent 100 val) -- need to pass term width here
 
     -- Nested procCall's should be in parentheses
-    -- pprExprIdentNested ident (ExprProcCall pc) = "(" <> ppProcCall ident pc <> ")"
-    -- pprExprIdentNested _ anything              = pprExprIdent 100 anything
     identation :: Int -> Text
     identation n = Text.replicate n (Text.pack "  ")
 
     ppGroup :: NonEmpty (Expr Name) -> Text -- pass ident here?
-    -- ppGroup (AtLeastTwo a1 a2 as) = case as of
-    --     [] -> (pprExprIdent a1) <> "; " <> (pprExprIdent a2)
-    --   where
-    --     ppLast [] = ""
-    --     ppLast (x:xs)
     ppGroup (e:|es) = case (nonEmpty es) of
         Nothing  -> sformat (stext%"\n") (pprExprIdent 100 e)
         Just es_ ->
@@ -107,6 +101,46 @@ pprExprIdent w = f w
                 if Text.last printedExpr == '\n'
                     then sformat (stext%";\n"%stext) (Text.init printedExpr) (ppGroup es_)
                     else sformat (stext%";\n"%stext) printedExpr (ppGroup es_)
+
+type Indent = Int
+
+pprExprPP :: Width -> Expr Name -> Doc
+pprExprPP w = f w
+  where
+    -- ignoring w here
+    f w ExprUnit          = text "()"
+    f w (ExprGroup exps)  = ppGroup exps
+    f w (ExprProcCall pc) = ppProcCall 2 pc
+    f w (ExprLit l)       = text (pprLit l)
+
+    ppGroup :: NonEmpty (Expr Name) -> Doc
+    ppGroup expsNE = vsep (punctuate (char ';') (fmap (pprExprPP w) (toList expsNE)))
+
+    ppProcCall :: Indent -> (ProcCall Name (Expr Name)) -> Doc
+    ppProcCall i (ProcCall name args) =
+        let
+            nameDoc = nameToDoc name
+            -- pass (i + 1) to increase nesting if arg is a ProcCall
+            argsDoc = indent i (vsep (fmap (ppArg (i + 1)) args))
+        in
+            nameDoc PP.<$> argsDoc
+
+    ppArg :: Indent -> Arg (Expr Name) -> Doc
+    ppArg i (ArgPos pos) = case pos of
+        (ExprProcCall pc) -> parens (ppProcCall i pc)
+        anything          -> pprExprPP w anything
+    -- how is identation handaled here? It launched inside ppProCall
+    ppArg _ (ArgKw name val) = (nameToDoc name) PP.<> (text ": ") PP.<> (pprExprPP w val)
+
+
+foramatTest :: IO ()
+foramatTest = do
+    putText $ show $ pprExprPP 100 $ ExprGroup ((ExprLit (LitNumber 555)):|[ExprProcCall procCallNestedFunc])
+
+procCall = ProcCall "foo-a" [ArgKw "foo-arg" (ExprLit (LitString "argValue")), (ArgPos (ExprLit (LitString "posValue"))), ArgKw "foo-a-arg-name" (ExprLit (LitString "1 idented"))]
+procCallWithFunc = ProcCall "foo-b" [ArgKw "foo-b-arg-name" (ExprLit (LitString "argValue")), (ArgPos (ExprProcCall procCall)), ArgKw "foo-b-arg-name" (ExprLit (LitString "2 idented"))]
+procCallNestedFunc = ProcCall "foo-c" [ArgKw "foo-c-arg-name" (ExprLit (LitString "argValue")), (ArgPos (ExprProcCall procCallWithFunc))]
+
 
 type Width = Int
 
@@ -143,17 +177,17 @@ pprExpr (Just width) = pprExprIdent width
 -- AddrDistrPart or
 -- AddrStakeDistribution or
 -- TxOut -> Text
-printBool :: Bool -> Text
-printBool True  = "true"
-printBool False = "false"
+-- printBool :: Bool -> Text
+-- printBool True  = "true"
+-- printBool False = "false"
 
-printSoftware :: SoftwareVersion -> Text
-printSoftware SoftwareVersion {..} =
-    sformat ("software name: "%char%stext%char%" n: "%build) '\"' (getApplicationName svAppName) '\"' svNumber
+-- printSoftware :: SoftwareVersion -> Text
+-- printSoftware SoftwareVersion {..} =
+--     sformat ("software name: "%char%stext%char%" n: "%build) '\"' (getApplicationName svAppName) '\"' svNumber
 
-printAddrDistrPart :: Lang.AddrDistrPart -> Text
-printAddrDistrPart (Lang.AddrDistrPart sId cp) =
-    sformat ("dp s: "%char%stext%char%" p: "%build) '\"' (sformat hashHexF sId) '\"' (getCoinPortion cp)
+-- printAddrDistrPart :: Lang.AddrDistrPart -> Text
+-- printAddrDistrPart (Lang.AddrDistrPart sId cp) =
+--     sformat ("dp s: "%char%stext%char%" p: "%build) '\"' (sformat hashHexF sId) '\"' (getCoinPortion cp)
 
-printBVD :: BlockVersionData -> Text
-printBVD bvd = sformat ("bvd-read value: "%char%stext%char) '\"' (show bvd) '\"'
+-- printBVD :: BlockVersionData -> Text
+-- printBVD bvd = sformat ("bvd-read value: "%char%stext%char) '\"' (show bvd) '\"'
