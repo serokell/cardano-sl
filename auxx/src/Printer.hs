@@ -4,6 +4,7 @@ module Printer
 
 import           Universum
 
+import           Data.Text as Text
 import           Formatting (build, char, float, int, sformat, stext, (%))
 import           Lang.Name (Name)
 import           Lang.Syntax (Arg (..), Expr (..), Lit (..), ProcCall (..))
@@ -29,8 +30,8 @@ pprLit = f
     f        (LitFilePath a) = (pretty a)
 
 
-pprExpr :: Expr Name -> Text
-pprExpr = f
+pprExprNoIdent :: Expr Name -> Text
+pprExprNoIdent = f
   where
     f ExprUnit          = sformat (stext) "()"
     f (ExprGroup exps)  = ppGroup exps
@@ -45,17 +46,74 @@ pprExpr = f
     concatSpace [arg]  = ppArg arg -- redundant
     concatSpace (a:as) = (ppArg a) <> (concatSpace as)
 
-    ppArg (ArgPos pos)     = pprExprNested pos
-    ppArg (ArgKw name val) = (sformat build name) <> ": " <> (pprExpr val)
+    ppArg (ArgPos pos)     = pprExprNoIdentNested pos
+    ppArg (ArgKw name val) = (sformat build name) <> ": " <> (pprExprNoIdent val)
 
     -- Nested procCall's should be in parentheses
-    pprExprNested (ExprProcCall pc) = "(" <> ppProcCall pc <> ")"
-    pprExprNested anything          = pprExpr anything
+    pprExprNoIdentNested (ExprProcCall pc) = "(" <> ppProcCall pc <> ")"
+    pprExprNoIdentNested anything          = pprExprNoIdentNested anything
 
     ppGroup :: NonEmpty (Expr Name) -> Text
+    -- ppGroup (AtLeastTwo a1 a2 as) = case as of
+    --     [] -> (pprExprNoIdent a1) <> "; " <> (pprExprNoIdent a2)
+    --   where
+    --     ppLast [] = ""
+    --     ppLast (x:xs)
     ppGroup (e:|es) = case (nonEmpty es) of
-        Nothing  -> pprExpr e
-        Just es_ -> (pprExpr e) <> "; " <> (ppGroup es_)
+        Nothing  -> pprExprNoIdent e
+        Just es_ -> (pprExprNoIdent e) <> "; " <> (ppGroup es_)
+
+
+pprExprIdent :: Width -> Expr Name -> Text
+pprExprIdent w = f w
+  where
+    -- ignoring w here
+    f w ExprUnit          = sformat (stext) "()"
+    f w (ExprGroup exps)  = ppGroup exps
+    f w (ExprProcCall pc) = ppProcCall 0 pc
+    f w (ExprLit l)       = pprLit l
+
+    ppProcCall :: Int -> (ProcCall Name (Expr Name)) -> Text
+    ppProcCall ident (ProcCall name args) = sformat (build%"\n"%stext) name (concatArgs (ident + 1) args)
+
+    concatArgs _ []     = sformat ("\n")
+    -- concatArgs ident [arg]  = ppArg ident arg -- redundant
+    concatArgs ident (a:as) =
+        sformat (stext%stext%stext) (identation ident) (ppArg ident a) (concatArgs ident as)
+    -- identation is passed because if argument is a ProcCall, it should be increased
+    ppArg ident (ArgPos pos) = case pos of
+        (ExprProcCall pc) -> sformat ("("%stext%stext%")\n") (ppProcCall ident pc) (identation ident) -- remove last \n and put ")"
+        anything          -> sformat (stext%"\n") (pprExprIdent 100 anything)
+    ppArg _ (ArgKw name val) = sformat (build%": "%stext%"\n") name (pprExprIdent 100 val) -- need to pass term width here
+
+    -- Nested procCall's should be in parentheses
+    -- pprExprIdentNested ident (ExprProcCall pc) = "(" <> ppProcCall ident pc <> ")"
+    -- pprExprIdentNested _ anything              = pprExprIdent 100 anything
+    identation :: Int -> Text
+    identation n = Text.replicate n (Text.pack "  ")
+
+    ppGroup :: NonEmpty (Expr Name) -> Text -- pass ident here?
+    -- ppGroup (AtLeastTwo a1 a2 as) = case as of
+    --     [] -> (pprExprIdent a1) <> "; " <> (pprExprIdent a2)
+    --   where
+    --     ppLast [] = ""
+    --     ppLast (x:xs)
+    ppGroup (e:|es) = case (nonEmpty es) of
+        Nothing  -> sformat (stext%"\n") (pprExprIdent 100 e)
+        Just es_ ->
+            let
+                printedExpr = (pprExprIdent 100 e)
+            in
+                if Text.last printedExpr == '\n'
+                    then sformat (stext%";\n"%stext) (Text.init printedExpr) (ppGroup es_)
+                    else sformat (stext%";\n"%stext) printedExpr (ppGroup es_)
+
+type Width = Int
+
+pprExpr :: Maybe Width -> Expr Name -> Text
+pprExpr Nothing      = pprExprNoIdent
+pprExpr (Just width) = pprExprIdent width
+
 
 -- ppValue :: Lang.Value -> Text
 -- ppValue = \case

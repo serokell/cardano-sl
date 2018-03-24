@@ -11,22 +11,24 @@ import           Data.Functor.Identity (Identity)
 import           Lang.Value (AddrDistrPart (..), Value (..))
 -- import           Data.Constraint (Dict(..))
 -- import           Mode (MonadAuxxMode, AuxxMode)
+import           Formatting (build, char, float, int, sformat, stext, (%))
+
 import           Plugin (ppValue)
 import           Printer (pprExpr)
 import           System.IO.Unsafe (unsafePerformIO)
-import           Test.Hspec (Arg, Expectation, Spec, SpecWith, describe, it, shouldBe)
+import           Test.Hspec (Expectation, Spec, SpecWith, describe, it, shouldBe)
 import           Test.QuickCheck (Arbitrary (..), generate)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 -- import           Formatting (float, int, char, stext, sformat, fprint, (%)) --need
-import           Lang (Expr, Name)
+import           Lang (Arg (..), Expr (..), Lit (..), Name, ProcCall (..))
 import           Pos.Core (SoftwareVersion (..))
 import           Pos.Util.CompileInfo (retrieveCompileTimeInfo, withCompileInfo)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (Property, property)
 import           Text.PrettyPrint.ANSI.Leijen (Doc, text)
 
-
 import qualified Lang as Lang
+import qualified Test.Hspec as Hspec
 import qualified Text.PrettyPrint.ANSI.Leijen as PP
 
 spec :: Spec
@@ -34,11 +36,11 @@ spec = describe "Auxx.Repl.ppValue" $ do
     traverse_ itHandles expressions
     prop "hadles any Expr" propHandleRandomExpr
 
-itHandles :: (Expr Name) -> SpecWith (Arg Expectation)
+itHandles :: (Expr Name) -> SpecWith (Hspec.Arg Expectation)
 itHandles val = it ("handles " <> show val) $ exprPrinter val
 
 propHandleRandomExpr :: Property
-propHandleRandomExpr = property $ ((\expr -> (parseBack_ . pprExpr) expr == (Right expr)) :: Expr Name -> Bool)
+propHandleRandomExpr = property $ ((\expr -> (parseBack_ . (pprExpr (Just 100))) expr == (Right expr)) :: Expr Name -> Bool)
   where
     -- parseBack_ :: Text -> Expr Name
     parseBack_ = runIdentity . parseBack
@@ -48,7 +50,7 @@ exprPrinter expr = runIdentity $ exprPrinterId
   where
     exprPrinterId :: Identity Expectation
     exprPrinterId = do
-        eithParsed <- (parseBack . pprExpr) expr
+        eithParsed <- (parseBack . (pprExpr (Just 100))) expr
         return $ eithParsed `shouldBe` (Right expr)
 
 parseBack :: Text -> Identity (Either Doc (Expr Name))
@@ -69,15 +71,15 @@ instance Arbitrary (Expr Name) where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance Arbitrary (Lang.ProcCall Name (Expr Name)) where
+instance Arbitrary (ProcCall Name (Expr Name)) where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance Arbitrary (Lang.Lit) where
+instance Arbitrary (Lit) where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance Arbitrary (Lang.Arg (Expr Name)) where
+instance Arbitrary (Arg (Expr Name)) where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
@@ -85,26 +87,25 @@ exprArbitrary :: Expr Name
 exprArbitrary = (unsafePerformIO . generate) arbitrary
 
 expressions :: [Expr Name]
-expressions = [ Lang.ExprUnit
-              , Lang.ExprLit (Lang.LitNumber 555)
-              , Lang.ExprGroup ((Lang.ExprLit (Lang.LitNumber 555)):|[Lang.ExprLit (Lang.LitHash $ genUnsafe arbitrary)])
-              , Lang.ExprGroup ((Lang.ExprLit (Lang.LitNumber 555)):|[Lang.ExprProcCall procCall])
-              , Lang.ExprGroup ((Lang.ExprLit (Lang.LitNumber 555)):|[Lang.ExprProcCall procCallWithFunc])
-              , Lang.ExprLit (Lang.LitString "jjl")
-              , Lang.ExprLit (Lang.LitAddress $ genUnsafe arbitrary)
-              , Lang.ExprLit (Lang.LitPublicKey $ genUnsafe arbitrary)
-              , Lang.ExprLit (Lang.LitHash $ genUnsafe arbitrary)
-              , Lang.ExprLit (Lang.LitStakeholderId $ genUnsafe arbitrary)
-              , Lang.ExprLit (Lang.LitBlockVersion $ genUnsafe arbitrary)
-              , Lang.ExprLit (Lang.LitSoftwareVersion $ genUnsafe arbitrary)
-              , Lang.ExprLit (Lang.LitFilePath "/kkk")]
-  where
-    genUnsafe = unsafePerformIO . generate
-
-    procCall = Lang.ProcCall "foo" [Lang.ArgKw "argName" (Lang.ExprLit (Lang.LitString "argValue")), (Lang.ArgPos (Lang.ExprLit (Lang.LitString "posValue")))]
-    procCallWithFunc = Lang.ProcCall "foo" [Lang.ArgKw "argName" (Lang.ExprLit (Lang.LitString "argValue")), (Lang.ArgPos (Lang.ExprProcCall procCall))]
-
-
+expressions = [ ExprUnit
+              , ExprLit (LitNumber 555)
+              , ExprGroup ((ExprLit (LitNumber 555)):|[ExprLit (LitHash $ genUnsafe arbitrary)])
+              , ExprGroup ((ExprLit (LitNumber 555)):|[ExprProcCall procCall])
+              , ExprGroup ((ExprLit (LitNumber 555)):|[ExprProcCall procCallWithFunc])
+              , ExprGroup ((ExprLit (LitNumber 555)):|[ExprProcCall procCallNestedFunc, ExprLit (LitString "Single ident")])
+              , ExprLit (LitString "jjl")
+              , ExprLit (LitAddress $ genUnsafe arbitrary)
+              , ExprLit (LitPublicKey $ genUnsafe arbitrary)
+              , ExprLit (LitHash $ genUnsafe arbitrary)
+              , ExprLit (LitStakeholderId $ genUnsafe arbitrary)
+              , ExprLit (LitBlockVersion $ genUnsafe arbitrary)
+              , ExprLit (LitSoftwareVersion $ genUnsafe arbitrary)
+              , ExprLit (LitFilePath "/kkk")]
+--   where
+--     procCall = ProcCall "foo-1" [ArgKw "foo1-arg" (ExprLit (LitString "argValue")), (ArgPos (ExprLit (LitString "posValue"))), ArgKw "foo1arg-name1" (ExprLit (LitString "1 idented"))]
+--     procCallWithFunc = ProcCall "foo-2" [ArgKw "foo2arg-name" (ExprLit (LitString "argValue")), (ArgPos (ExprProcCall procCall)), ArgKw "foo2arg-name2" (ExprLit (LitString "2 idented"))]
+--     procCallNestedFunc = ProcCall "foo-3" [ArgKw "foo3arg-name" (ExprLit (LitString "argValue")), (ArgPos (ExprProcCall procCallWithFunc))]
+genUnsafe = unsafePerformIO . generate
     -- (LitNumber a) = (sformat float a)
 -- f          (LitString a) = sformat (char % stext % char) '\"' (toText a) '\"'
 -- f         (LitAddress a) = (pretty a)
@@ -115,10 +116,20 @@ expressions = [ Lang.ExprUnit
 -- f (LitSoftwareVersion a) = printSoftware a
 -- f        (LitFilePath a)
 
+manualCheck :: Expr Name -> (Either Doc (Expr Name))
+manualCheck = (runIdentity . parseBack . pprExpr (Just 100))
+
 printTest :: IO ()
-printTest = forM_ [exprArbitrary] $ \ex -> do
-    putText $ pprExpr ex
-    putText ""
+printTest = forM_ expressions $ \ex -> do
+    putText $ pprExpr (Just 100) ex
+
+foramatTest :: IO ()
+foramatTest = do
+    putText $ pprExpr (Just 100) $ ExprGroup ((ExprLit (LitNumber 555)):|[ExprProcCall procCallNestedFunc])
+
+procCall = ProcCall "foo-a" [ArgKw "foo-arg" (ExprLit (LitString "argValue")), (ArgPos (ExprLit (LitString "posValue"))), ArgKw "foo-a-arg-name" (ExprLit (LitString "1 idented"))]
+procCallWithFunc = ProcCall "foo-b" [ArgKw "foo-b-arg-name" (ExprLit (LitString "argValue")), (ArgPos (ExprProcCall procCall)), ArgKw "foo-b-arg-name" (ExprLit (LitString "2 idented"))]
+procCallNestedFunc = ProcCall "foo-c" [ArgKw "foo-c-arg-name" (ExprLit (LitString "argValue")), (ArgPos (ExprProcCall procCallWithFunc))]
 
 instance Eq Doc
 

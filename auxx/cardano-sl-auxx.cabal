@@ -211,6 +211,7 @@ test-suite cardano-auxx-test
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-util
+                     , formatting
                      , generic-arbitrary
                      , mtl
                      , hspec

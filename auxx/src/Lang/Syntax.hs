@@ -28,6 +28,8 @@ deriving instance Ord cmd => Ord (Expr cmd)
 deriving instance Show cmd => Show (Expr cmd)
 deriving instance Generic cmd => Generic (Expr cmd)
 
+-- data AtLeastTwo a = AtLeastTwo a a [a]
+--   deriving (Functor, Foldable, Traversable)
 
 data Lit
     = LitNumber Scientific
