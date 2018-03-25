@@ -8,7 +8,9 @@ import           Universum
 import           Command (createCommandProcs)
 import           Control.Monad.Except (ExceptT (..), withExceptT)
 import           Data.Functor.Identity (Identity)
+import           Lang.Syntax (AtLeastTwo (..), fromList_, toList_)
 import           Lang.Value (AddrDistrPart (..), Value (..))
+
 -- import           Data.Constraint (Dict(..))
 -- import           Mode (MonadAuxxMode, AuxxMode)
 import           Formatting (build, char, float, int, sformat, stext, (%))
@@ -71,6 +73,10 @@ instance Arbitrary (Expr Name) where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
+instance Arbitrary (AtLeastTwo (Expr Name)) where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
+
 instance Arbitrary (ProcCall Name (Expr Name)) where
     arbitrary = genericArbitrary
     shrink = genericShrink
@@ -89,10 +95,10 @@ exprArbitrary = (unsafePerformIO . generate) arbitrary
 expressions :: [Expr Name]
 expressions = [ ExprUnit
               , ExprLit (LitNumber 555)
-              , ExprGroup ((ExprLit (LitNumber 555)):|[ExprLit (LitHash $ genUnsafe arbitrary)])
-              , ExprGroup ((ExprLit (LitNumber 555)):|[ExprProcCall procCall])
-              , ExprGroup ((ExprLit (LitNumber 555)):|[ExprProcCall procCallWithFunc])
-              , ExprGroup ((ExprLit (LitNumber 555)):|[ExprProcCall procCallNestedFunc, ExprLit (LitString "Single ident")])
+              , ExprGroup (fromList_ $ [(ExprLit (LitNumber 555)), ExprLit (LitHash $ genUnsafe arbitrary)])
+              , ExprGroup (fromList_ $ [(ExprLit (LitNumber 555)), ExprProcCall procCall])
+              , ExprGroup (fromList_ $ [(ExprLit (LitNumber 555)), ExprProcCall procCallWithFunc])
+              , ExprGroup (fromList_ $ [(ExprLit (LitNumber 555)), ExprProcCall procCallNestedFunc, ExprLit (LitString "Single ident")])
               , ExprLit (LitString "jjl")
               , ExprLit (LitAddress $ genUnsafe arbitrary)
               , ExprLit (LitPublicKey $ genUnsafe arbitrary)
@@ -101,20 +107,9 @@ expressions = [ ExprUnit
               , ExprLit (LitBlockVersion $ genUnsafe arbitrary)
               , ExprLit (LitSoftwareVersion $ genUnsafe arbitrary)
               , ExprLit (LitFilePath "/kkk")]
---   where
---     procCall = ProcCall "foo-1" [ArgKw "foo1-arg" (ExprLit (LitString "argValue")), (ArgPos (ExprLit (LitString "posValue"))), ArgKw "foo1arg-name1" (ExprLit (LitString "1 idented"))]
---     procCallWithFunc = ProcCall "foo-2" [ArgKw "foo2arg-name" (ExprLit (LitString "argValue")), (ArgPos (ExprProcCall procCall)), ArgKw "foo2arg-name2" (ExprLit (LitString "2 idented"))]
---     procCallNestedFunc = ProcCall "foo-3" [ArgKw "foo3arg-name" (ExprLit (LitString "argValue")), (ArgPos (ExprProcCall procCallWithFunc))]
+
 genUnsafe = unsafePerformIO . generate
-    -- (LitNumber a) = (sformat float a)
--- f          (LitString a) = sformat (char % stext % char) '\"' (toText a) '\"'
--- f         (LitAddress a) = (pretty a)
--- f       (LitPublicKey a) = (sformat fullPublicKeyF a)
--- f   (LitStakeholderId a) = (sformat hashHexF a)
--- f            (LitHash a) = (sformat hashHexF (getAHash a))
--- f    (LitBlockVersion a) = (pretty a)
--- f (LitSoftwareVersion a) = printSoftware a
--- f        (LitFilePath a)
+
 
 manualCheck :: Expr Name -> (Either Doc (Expr Name))
 manualCheck = (runIdentity . parseBack . pprExpr (Just 100))
@@ -125,8 +120,9 @@ printTest = forM_ expressions $ \ex -> do
 
 foramatTest :: IO ()
 foramatTest = do
-    putText $ pprExpr (Just 100) $ ExprGroup ((ExprLit (LitNumber 555)):|[ExprProcCall procCallNestedFunc])
+    putText $ pprExpr (Just 100) $ ExprGroup $ fromList_ [(ExprLit (LitNumber 555)), ExprProcCall procCallNestedFunc]
 
+procCall, procCallWithFunc, procCallNestedFunc :: ProcCall Name (Expr Name)
 procCall = ProcCall "foo-a" [ArgKw "foo-arg" (ExprLit (LitString "argValue")), (ArgPos (ExprLit (LitString "posValue"))), ArgKw "foo-a-arg-name" (ExprLit (LitString "1 idented"))]
 procCallWithFunc = ProcCall "foo-b" [ArgKw "foo-b-arg-name" (ExprLit (LitString "argValue")), (ArgPos (ExprProcCall procCall)), ArgKw "foo-b-arg-name" (ExprLit (LitString "2 idented"))]
 procCallNestedFunc = ProcCall "foo-c" [ArgKw "foo-c-arg-name" (ExprLit (LitString "argValue")), (ArgPos (ExprProcCall procCallWithFunc))]

@@ -13,8 +13,10 @@ import           Control.Monad.Except (throwError)
 import           Lang.Argument (ProcError, consumeArguments)
 import           Lang.Command (CommandProc (..))
 import           Lang.Name (Name)
-import           Lang.Syntax (Expr (..), Lit (..), ProcCall (..))
+import           Lang.Syntax (AtLeastTwo (..), Expr (..), Lit (..), ProcCall (..))
 import           Lang.Value (Value (..))
+
+import qualified Lang.Syntax as Lang
 
 data EvalError = InvalidArguments Name ProcError
     deriving (Eq, Ord, Show)
@@ -35,10 +37,13 @@ eval = \case
 -- | Evaluage a group of expressions and take the result
 -- of the last one. Equivalent to @fmap NE.last . traverse eval@,
 -- but is single-pass.
-evalExprGroup :: NonEmpty (Expr (CommandProc m)) -> EvalT m Value
-evalExprGroup (x :| xs) = case nonEmpty xs of
-    Nothing  -> eval x
-    Just xs' -> eval x *> evalExprGroup xs'
+evalExprGroup :: AtLeastTwo (Expr (CommandProc m)) -> EvalT m Value
+evalExprGroup altExprs = case (Lang.toList_ altExprs) of
+    (x:y:[])  -> eval x *> eval y
+    (x:y:xs') -> eval x *> eval y *> evalExprList xs'
+  where
+    evalExprList [x]    = eval x
+    evalExprList (x:xs) = eval x *> evalExprList xs
 
 evalProcCall :: ProcCall (CommandProc m) Value -> EvalT m Value
 evalProcCall (ProcCall CommandProc{..} args) = do

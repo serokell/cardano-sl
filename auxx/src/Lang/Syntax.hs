@@ -7,6 +7,8 @@ module Lang.Syntax
        , Lit(..)
        , ProcCall(..)
        , Arg(..)
+       , AtLeastTwo(..)
+       , toList_
        ) where
 
 import           Universum
@@ -19,7 +21,7 @@ import           Pos.Crypto (AHash, PublicKey)
 
 data Expr cmd
     = ExprUnit
-    | ExprGroup (NonEmpty (Expr cmd))
+    | ExprGroup (AtLeastTwo (Expr cmd))
     | ExprProcCall (ProcCall cmd (Expr cmd))
     | ExprLit Lit
 
@@ -28,8 +30,11 @@ deriving instance Ord cmd => Ord (Expr cmd)
 deriving instance Show cmd => Show (Expr cmd)
 deriving instance Generic cmd => Generic (Expr cmd)
 
--- data AtLeastTwo a = AtLeastTwo a a [a]
---   deriving (Functor, Foldable, Traversable)
+data AtLeastTwo a = AtLeastTwo a a [a]
+  deriving (Functor, Foldable, Traversable, Generic, Eq, Ord, Show)
+
+toList_ :: AtLeastTwo a -> [a]
+toList_ (AtLeastTwo x y zs) = x:y:zs
 
 data Lit
     = LitNumber Scientific

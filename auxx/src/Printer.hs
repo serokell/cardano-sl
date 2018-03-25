@@ -8,7 +8,8 @@ import           Data.Text as Text
 import           Formatting (build, float, int, sformat, stext, (%))
 import           Lang.DisplayError (nameToDoc, text)
 import           Lang.Name (Name)
-import           Lang.Syntax (Arg (..), Expr (..), Lit (..), ProcCall (..))
+import           Lang.Syntax (Arg (..), AtLeastTwo (..), Expr (..), Lit (..), ProcCall (..),
+                              fromList_, toList_)
 import           Pos.Core (AddrStakeDistribution, Address, ApplicationName (..), BlockVersion,
                            CoinPortion, SoftwareVersion (..), StakeholderId)
 import           Pos.Core.Common (CoinPortion (..))
@@ -19,7 +20,6 @@ import           Text.PrettyPrint.ANSI.Leijen (Doc, char, displayS, empty, hcat,
                                                vsep, yellow, (<$>), (<+>))
 
 import qualified Data.List.NonEmpty as NE
-import qualified Lang
 import qualified Text.PrettyPrint.ANSI.Leijen as PP
 
 pprLit :: Lit -> Text
@@ -62,10 +62,12 @@ pprExprNoIdent = f
     pprExprNoIdentNested (ExprProcCall pc) = "(" <> ppProcCall pc <> ")"
     pprExprNoIdentNested anything          = pprExprNoIdentNested anything
 
-    ppGroup :: NonEmpty (Expr Name) -> Text
-    ppGroup (e:|es) = case (nonEmpty es) of
-        Nothing  -> pprExprNoIdent e
-        Just es_ -> (pprExprNoIdent e) <> "; " <> (ppGroup es_)
+    ppGroup :: AtLeastTwo (Expr Name) -> Text
+    ppGroup expsALT = ppList $ toList_ expsALT
+
+    ppList :: [Expr Name] -> Text
+    ppList [e]    = pprExprNoIdent e
+    ppList (e:es) = (pprExprNoIdent e) <> "; " <> (ppList es)
 
 type Indent = Int
 type Width = Int
@@ -78,8 +80,8 @@ ppExpr = f
     f (ExprProcCall pc) = ppProcCall 2 pc
     f (ExprLit l)       = text (pprLit l)
 
-    ppGroup :: NonEmpty (Expr Name) -> Doc
-    ppGroup expsNE = vsep (punctuate (char ';') (fmap ppExpr (toList expsNE)))
+    ppGroup :: AtLeastTwo (Expr Name) -> Doc
+    ppGroup expsALT = vsep (punctuate (char ';') (fmap ppExpr (toList_ expsALT)))
 
     ppProcCall :: Indent -> (ProcCall Name (Expr Name)) -> Doc
     ppProcCall i (ProcCall name args) =
@@ -97,13 +99,13 @@ ppExpr = f
     ppArg _ (ArgKw name val) = (nameToDoc name) PP.<> (text ": ") PP.<> (ppExpr val)
 
 
-foramatTest :: IO ()
-foramatTest = do
-    putText $ pprExpr (Just 100) $ ExprGroup ((ExprLit (LitNumber 555)):|[ExprProcCall procCallNestedFunc])
+-- foramatTest :: IO ()
+-- foramatTest = do
+--     putText $ pprExpr (Just 100) $ ExprGroup $ fromList_ [(ExprLit (LitNumber 555)), ExprProcCall procCallNestedFunc]
 
-procCall = ProcCall "foo-a" [ArgKw "foo-arg" (ExprLit (LitString "argValue")), (ArgPos (ExprLit (LitString "posValue"))), ArgKw "foo-a-arg-name" (ExprLit (LitString "1 idented"))]
-procCallWithFunc = ProcCall "foo-b" [ArgKw "foo-b-arg-name" (ExprLit (LitString "argValue")), (ArgPos (ExprProcCall procCall)), ArgKw "foo-b-arg-name" (ExprLit (LitString "2 idented"))]
-procCallNestedFunc = ProcCall "foo-c" [ArgKw "foo-c-arg-name" (ExprLit (LitString "argValue")), (ArgPos (ExprProcCall procCallWithFunc))]
+-- procCall = ProcCall "foo-a" [ArgKw "foo-arg" (ExprLit (LitString "argValue")), (ArgPos (ExprLit (LitString "posValue"))), ArgKw "foo-a-arg-name" (ExprLit (LitString "1 idented"))]
+-- procCallWithFunc = ProcCall "foo-b" [ArgKw "foo-b-arg-name" (ExprLit (LitString "argValue")), (ArgPos (ExprProcCall procCall)), ArgKw "foo-b-arg-name" (ExprLit (LitString "2 idented"))]
+-- procCallNestedFunc = ProcCall "foo-c" [ArgKw "foo-c-arg-name" (ExprLit (LitString "argValue")), (ArgPos (ExprProcCall procCallWithFunc))]
 
 
 pprExpr :: Maybe Width -> Expr Name -> Text
