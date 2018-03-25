@@ -33,7 +33,10 @@ unsafeMkName :: [String] -> Name
 unsafeMkName = coerce . fmap NonEmpty.fromList . NonEmpty.fromList
 
 instance Arbitrary Name where
-    arbitrary = genericArbitrary
+    arbitrary = do
+        l <- arbitrary
+        ls <- arbitrary
+        return $ Name ((l:|ls):|[])
     shrink = genericShrink
 
 instance Buildable Name where

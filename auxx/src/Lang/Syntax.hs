@@ -9,6 +9,7 @@ module Lang.Syntax
        , Arg(..)
        , AtLeastTwo(..)
        , toList_
+       , fromList_
        ) where
 
 import           Universum
@@ -35,6 +36,10 @@ data AtLeastTwo a = AtLeastTwo a a [a]
 
 toList_ :: AtLeastTwo a -> [a]
 toList_ (AtLeastTwo x y zs) = x:y:zs
+
+-- UNSAFE
+fromList_ :: [a] -> AtLeastTwo a
+fromList_ (x:y:xs) = AtLeastTwo x y xs
 
 data Lit
     = LitNumber Scientific

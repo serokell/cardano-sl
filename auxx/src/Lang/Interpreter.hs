@@ -39,11 +39,14 @@ eval = \case
 -- but is single-pass.
 evalExprGroup :: AtLeastTwo (Expr (CommandProc m)) -> EvalT m Value
 evalExprGroup altExprs = case (Lang.toList_ altExprs) of
-    (x:y:[])  -> eval x *> eval y
+    [x, y]  -> eval x *> eval y
     (x:y:xs') -> eval x *> eval y *> evalExprList xs'
+    [x]       -> error "bug: AtLeastTwo can not contain less than two elements"
+    []        -> error "bug: AtLeastTwo can not contain less than two elements"
   where
     evalExprList [x]    = eval x
     evalExprList (x:xs) = eval x *> evalExprList xs
+    evalExprList []     = error "bug: AtLeastTwo can not contain less than two elements"
 
 evalProcCall :: ProcCall (CommandProc m) Value -> EvalT m Value
 evalProcCall (ProcCall CommandProc{..} args) = do

@@ -4,22 +4,19 @@ module Printer
 
 import           Universum
 
-import           Data.Text as Text
-import           Formatting (build, float, int, sformat, stext, (%))
+-- import           Data.Text as Text
+import           Formatting (build, float, sformat, stext, (%))
 import           Lang.DisplayError (nameToDoc, text)
 import           Lang.Name (Name)
 import           Lang.Syntax (Arg (..), AtLeastTwo (..), Expr (..), Lit (..), ProcCall (..),
-                              fromList_, toList_)
-import           Pos.Core (AddrStakeDistribution, Address, ApplicationName (..), BlockVersion,
-                           CoinPortion, SoftwareVersion (..), StakeholderId)
-import           Pos.Core.Common (CoinPortion (..))
-import           Pos.Core.Update (BlockVersionData)
+                              toList_)
+import           Pos.Core (ApplicationName (..), SoftwareVersion (..))
+-- import           Pos.Core.Common (CoinPortion (..))
+-- import           Pos.Core.Update (BlockVersionData)
 import           Pos.Crypto (AHash (..), fullPublicKeyF, hashHexF)
-import           Text.PrettyPrint.ANSI.Leijen (Doc, char, displayS, empty, hcat, indent, nest,
-                                               parens, punctuate, red, renderSmart, squotes, vcat,
-                                               vsep, yellow, (<$>), (<+>))
+import           Text.PrettyPrint.ANSI.Leijen (Doc, char, indent, parens, punctuate, vsep)
 
-import qualified Data.List.NonEmpty as NE
+-- import qualified Data.List.NonEmpty as NE
 import qualified Text.PrettyPrint.ANSI.Leijen as PP
 
 pprLit :: Lit -> Text
@@ -68,6 +65,7 @@ pprExprNoIdent = f
     ppList :: [Expr Name] -> Text
     ppList [e]    = pprExprNoIdent e
     ppList (e:es) = (pprExprNoIdent e) <> "; " <> (ppList es)
+    ppList []     = error "bug: use only with AtLeastTwo"
 
 type Indent = Int
 type Width = Int
@@ -99,8 +97,8 @@ ppExpr = f
     ppArg _ (ArgKw name val) = (nameToDoc name) PP.<> (text ": ") PP.<> (ppExpr val)
 
 
--- foramatTest :: IO ()
--- foramatTest = do
+-- formatTest :: IO ()
+-- formatTest = do
 --     putText $ pprExpr (Just 100) $ ExprGroup $ fromList_ [(ExprLit (LitNumber 555)), ExprProcCall procCallNestedFunc]
 
 -- procCall = ProcCall "foo-a" [ArgKw "foo-arg" (ExprLit (LitString "argValue")), (ArgPos (ExprLit (LitString "posValue"))), ArgKw "foo-a-arg-name" (ExprLit (LitString "1 idented"))]

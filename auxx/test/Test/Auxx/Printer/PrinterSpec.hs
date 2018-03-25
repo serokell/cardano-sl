@@ -8,25 +8,16 @@ import           Universum
 import           Command (createCommandProcs)
 import           Control.Monad.Except (ExceptT (..), withExceptT)
 import           Data.Functor.Identity (Identity)
-import           Lang.Syntax (AtLeastTwo (..), fromList_, toList_)
+import           Lang (Arg (..), Expr (..), Lit (..), Name, ProcCall (..))
+import           Lang.Syntax (AtLeastTwo (..), fromList_)
 import           Lang.Value (AddrDistrPart (..), Value (..))
-
--- import           Data.Constraint (Dict(..))
--- import           Mode (MonadAuxxMode, AuxxMode)
-import           Formatting (build, char, float, int, sformat, stext, (%))
-
-import           Plugin (ppValue)
+import           Pos.Util.CompileInfo (retrieveCompileTimeInfo, withCompileInfo)
 import           Printer (pprExpr)
 import           System.IO.Unsafe (unsafePerformIO)
 import           Test.Hspec (Expectation, Spec, SpecWith, describe, it, shouldBe)
-import           Test.QuickCheck (Arbitrary (..), generate)
-import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
--- import           Formatting (float, int, char, stext, sformat, fprint, (%)) --need
-import           Lang (Arg (..), Expr (..), Lit (..), Name, ProcCall (..))
-import           Pos.Core (SoftwareVersion (..))
-import           Pos.Util.CompileInfo (retrieveCompileTimeInfo, withCompileInfo)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck (Property, property)
+import           Test.QuickCheck (Arbitrary (..), Gen, Property, generate, property)
+import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 import           Text.PrettyPrint.ANSI.Leijen (Doc, text)
 
 import qualified Lang as Lang
@@ -57,11 +48,7 @@ exprPrinter expr = runIdentity $ exprPrinterId
 
 parseBack :: Text -> Identity (Either Doc (Expr Name))
 parseBack line = withCompileInfo $(retrieveCompileTimeInfo) $ do
-    let
-        printAction line = return ()
-        commandProcs = createCommandProcs Nothing Nothing printAction Nothing :: [Lang.CommandProc Identity]
-
-        parse = withExceptT Lang.ppParseError . ExceptT . return . Lang.parse
+    let parse = withExceptT Lang.ppParseError . ExceptT . return . Lang.parse
     runExceptT (parse line) >>= \case
         Left errDoc ->
             let
@@ -108,8 +95,8 @@ expressions = [ ExprUnit
               , ExprLit (LitSoftwareVersion $ genUnsafe arbitrary)
               , ExprLit (LitFilePath "/kkk")]
 
+genUnsafe :: Gen c -> c
 genUnsafe = unsafePerformIO . generate
-
 
 manualCheck :: Expr Name -> (Either Doc (Expr Name))
 manualCheck = (runIdentity . parseBack . pprExpr (Just 100))
@@ -154,8 +141,6 @@ values = [ ValueNumber $ genUnsafe arbitrary
          ]
   where
     genUnsafe = unsafePerformIO . generate
-
--- instance Generic AddrDistrPart
 
 instance Arbitrary AddrDistrPart where
     arbitrary = genericArbitrary
