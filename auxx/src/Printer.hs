@@ -48,12 +48,12 @@ pprExprNoIdent = f
     -- concatSpace [arg]  = ppArg arg -- redundant
     concatSpace (a:as) = (ppArg a) <> (concatSpace as)
 
-    ppArg (ArgPos pos)     = pprExprNoIdentNested pos
-    ppArg (ArgKw name val) = (sformat build name) <> ": " <> (pprExprNoIdent val)
+    ppArg (ArgPos pos)     = parensIfProcCall pos
+    ppArg (ArgKw name val) = (sformat build name) <> ": " <> (parensIfProcCall val)
 
     -- Nested procCall's should be in parentheses
-    pprExprNoIdentNested (ExprProcCall pc) = parens_ (ppProcCall pc)
-    pprExprNoIdentNested anything          = pprExprNoIdentNested anything
+    parensIfProcCall (ExprProcCall pc) = parens_ (ppProcCall pc)
+    parensIfProcCall anything          = pprExprNoIdent anything
 
     ppGroup :: AtLeastTwo (Expr Name) -> Text
     ppGroup (AtLeastTwo x y zs) = case nonEmpty zs of
@@ -94,11 +94,13 @@ ppExpr = f
             nameDoc PP.<$> argsDoc
 
     ppArg :: Indent -> Arg (Expr Name) -> Doc
-    ppArg i (ArgPos pos) = case pos of
-        -- pass (i + 1) to increase nesting if arg is a ProcCall
-        (ExprProcCall pc) -> parens (ppProcCall (i + 1) pc)
-        anything          -> ppExpr anything
-    ppArg _ (ArgKw name val) = (nameToDoc name) PP.<> (text ": ") PP.<> (ppExpr val)
+    ppArg i (ArgPos pos) = parensIfProcCall i pos
+    ppArg i (ArgKw name val) =
+        (nameToDoc name) PP.<> (text ": ") PP.<> (parensIfProcCall i val)
+
+    parensIfProcCall :: Indent -> Expr Name -> Doc
+    parensIfProcCall i (ExprProcCall pc) = parens (ppProcCall (i + 1) pc)
+    parensIfProcCall _ anything          = ppExpr anything
 
 -- Do we need a width here?
 pprExpr :: Maybe Width -> Expr Name -> Text
