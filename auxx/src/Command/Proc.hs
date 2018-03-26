@@ -27,7 +27,7 @@ import           Pos.Crypto (PublicKey, emptyPassphrase, encToPublic, fullPublic
                              noPassEncrypt, safeCreatePsk, unsafeCheatingHashCoerce, withSafeSigner)
 import           Pos.DB.Class (MonadGState (..))
 import           Pos.Diffusion.Types (Diffusion (..))
-import           Pos.Update (BlockVersionModifier (..), BlockVersionData)
+import           Pos.Update (BlockVersionData, BlockVersionModifier (..))
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.UserSecret (WalletUserSecret (..), readUserSecret, usKeys, usPrimKey,
                                       usWallet, userSecret)
@@ -42,7 +42,7 @@ import           Command.TyProjection (tyAddrDistrPart, tyAddrStakeDistr, tyAddr
                                        tyBool, tyByte, tyCoin, tyCoinPortion, tyEither,
                                        tyEpochIndex, tyFilePath, tyHash, tyInt,
                                        tyProposeUpdateSystem, tyPublicKey, tyScriptVersion,
-                                       tySecond, tyString, tySoftwareVersion, tyStakeholderId,
+                                       tySecond, tySoftwareVersion, tyStakeholderId, tyString,
                                        tySystemTag, tyTxOut, tyValue, tyWord, tyWord32)
 import qualified Command.Update as Update
 import           Lang.Argument (getArg, getArgMany, getArgOpt, getArgSome, typeDirectedKwAnn)
@@ -357,7 +357,7 @@ createCommandProcs hasMonadIO hasAuxxMode printAction mDiffusion = rights . fix 
     , cpHelp = "propose an update with one positive vote for it \
                \ using secret key #i"
     },
-    
+
     let name = "hash-installer" in
     needMonadIO name >>= \Dict ->
     return CommandProc
@@ -515,8 +515,8 @@ createCommandProcs hasMonadIO hasAuxxMode printAction mDiffusion = rights . fix 
     }]
   where
     needMonadIO :: Name -> Either UnavailableCommand (Dict (MonadIO m, CanLog m, HasLoggerName m))
-    needMonadIO name = 
-        maybe (Left $ UnavailableCommand name "MonadIO is not available") Right hasMonadIO 
+    needMonadIO name =
+        maybe (Left $ UnavailableCommand name "MonadIO is not available") Right hasMonadIO
     needsAuxxMode :: Name -> Either UnavailableCommand (Dict (MonadAuxxMode m))
     needsAuxxMode name =
         maybe (Left $ UnavailableCommand name "AuxxMode is not available") Right hasAuxxMode

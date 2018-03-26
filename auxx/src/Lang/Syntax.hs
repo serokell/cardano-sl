@@ -7,6 +7,8 @@ module Lang.Syntax
        , Lit(..)
        , ProcCall(..)
        , Arg(..)
+       , AtLeastTwo(..)
+       , toList_
        ) where
 
 import           Universum
@@ -19,13 +21,20 @@ import           Pos.Crypto (AHash, PublicKey)
 
 data Expr cmd
     = ExprUnit
-    | ExprGroup (NonEmpty (Expr cmd))
+    | ExprGroup (AtLeastTwo (Expr cmd))
     | ExprProcCall (ProcCall cmd (Expr cmd))
     | ExprLit Lit
 
 deriving instance Eq cmd => Eq (Expr cmd)
 deriving instance Ord cmd => Ord (Expr cmd)
 deriving instance Show cmd => Show (Expr cmd)
+deriving instance Generic cmd => Generic (Expr cmd)
+
+data AtLeastTwo a = AtLeastTwo a a [a]
+  deriving (Functor, Foldable, Traversable, Generic, Eq, Ord, Show)
+
+toList_ :: AtLeastTwo a -> [a]
+toList_ (AtLeastTwo x y zs) = x:y:zs
 
 data Lit
     = LitNumber Scientific
@@ -37,7 +46,7 @@ data Lit
     | LitBlockVersion BlockVersion
     | LitSoftwareVersion SoftwareVersion
     | LitFilePath FilePath
-    deriving (Eq, Ord, Show)
+    deriving (Eq, Ord, Show, Generic)
 
 data ProcCall cmd a = ProcCall cmd [Arg a]
     deriving (Functor, Foldable, Traversable)
@@ -45,6 +54,8 @@ data ProcCall cmd a = ProcCall cmd [Arg a]
 deriving instance (Eq cmd, Eq a) => Eq (ProcCall cmd a)
 deriving instance (Ord cmd, Ord a) => Ord (ProcCall cmd a)
 deriving instance (Show cmd, Show a) => Show (ProcCall cmd a)
+deriving instance (Generic cmd, Generic a) => Generic (ProcCall cmd a)
+
 
 data Arg a = ArgPos a | ArgKw Name a
     deriving (Functor, Foldable, Traversable)
@@ -52,3 +63,4 @@ data Arg a = ArgPos a | ArgKw Name a
 deriving instance Eq a => Eq (Arg a)
 deriving instance Ord a => Ord (Arg a)
 deriving instance Show a => Show (Arg a)
+deriving instance Generic a => Generic (Arg a)

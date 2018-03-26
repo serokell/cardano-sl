@@ -7,6 +7,7 @@ module Lang.Parser
 
 import           Universum
 
+import           Control.Applicative (some)
 import           Control.Applicative.Combinators.NonEmpty (sepBy1)
 import           Control.Lens (Getting)
 import           Data.Loc (Span)
@@ -21,6 +22,8 @@ import           Lang.Lexer (BracketSide, Token, getFilePath', tokenize, _Bracke
                              _TokenStakeholderId, _TokenString)
 import           Lang.Name (Name)
 import           Lang.Syntax (Arg (..), Expr (..), Lit (..), ProcCall (..))
+
+import qualified Lang.Syntax as Lang
 
 tok :: Getting (First a) Token a -> Prod r e (s, Token) a
 tok p = terminal (preview $ _2 . p)
@@ -68,8 +71,10 @@ gExpr = mdo
         ] <?> "atom"
     return ntExpr
 
-mkExprGroup (a :| []) = a
-mkExprGroup g = ExprGroup g
+mkExprGroup :: NonEmpty (Expr cmd) -> Expr cmd
+mkExprGroup (a :| [])       = a
+mkExprGroup (a1 :| (a2:as)) = ExprGroup $ Lang.AtLeastTwo a1 a2 as
+
 
 pExpr :: Parser Text [(s, Token)] (Expr Name)
 pExpr = parser gExpr

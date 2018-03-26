@@ -206,14 +206,16 @@ test-suite cardano-auxx-test
                      , ansi-wl-pprint
                      , base
                      , bytestring
-                     , constraints
                      , cardano-sl-auxx
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-util
+                     , constraints
+                     , formatting
                      , generic-arbitrary
-                     , mtl
                      , hspec
+                     , mtl
+                     , text
                      , universum >= 0.1.11
 
   hs-source-dirs:      test
