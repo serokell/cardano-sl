@@ -14,7 +14,7 @@ import qualified Data.List.NonEmpty as NonEmpty
 import           Data.List.Split (splitWhen)
 import qualified Data.Text.Buildable as Buildable
 import           Test.QuickCheck.Arbitrary.Generic (Arbitrary (..), genericArbitrary, genericShrink)
-import           Test.QuickCheck.Gen (suchThat)
+import           Test.QuickCheck.Gen (elements, suchThat)
 
 -- | Invariant: @isAlpha . getLetter = const True@
 newtype Letter = Letter { getLetter :: Char }
@@ -33,10 +33,7 @@ unsafeMkName :: [String] -> Name
 unsafeMkName = coerce . fmap NonEmpty.fromList . NonEmpty.fromList
 
 instance Arbitrary Name where
-    arbitrary = do
-        l <- arbitrary
-        ls <- arbitrary
-        return $ Name ((l:|ls):|[])
+    arbitrary = elements [(unsafeMkName ["foo", "a"]), (unsafeMkName ["foo", "b"])]
     shrink = genericShrink
 
 instance Buildable Name where

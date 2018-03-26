@@ -38,15 +38,13 @@ eval = \case
 -- of the last one. Equivalent to @fmap NE.last . traverse eval@,
 -- but is single-pass.
 evalExprGroup :: AtLeastTwo (Expr (CommandProc m)) -> EvalT m Value
-evalExprGroup altExprs = case (Lang.toList_ altExprs) of
-    [x, y]  -> eval x *> eval y
-    (x:y:xs') -> eval x *> eval y *> evalExprList xs'
-    [x]       -> error "bug: AtLeastTwo can not contain less than two elements"
-    []        -> error "bug: AtLeastTwo can not contain less than two elements"
+evalExprGroup (AtLeastTwo x y zs) = case nonEmpty zs of
+    Nothing -> eval x *> eval y
+    Just es -> eval x *> eval y *> evalExprNonEmpty es
   where
-    evalExprList [x]    = eval x
-    evalExprList (x:xs) = eval x *> evalExprList xs
-    evalExprList []     = error "bug: AtLeastTwo can not contain less than two elements"
+    evalExprNonEmpty (z:|zs) = case nonEmpty zs of
+        Nothing   -> eval z
+        (Just es) -> eval z *> evalExprNonEmpty es
 
 evalProcCall :: ProcCall (CommandProc m) Value -> EvalT m Value
 evalProcCall (ProcCall CommandProc{..} args) = do

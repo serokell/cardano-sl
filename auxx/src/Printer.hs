@@ -60,12 +60,17 @@ pprExprNoIdent = f
     pprExprNoIdentNested anything          = pprExprNoIdentNested anything
 
     ppGroup :: AtLeastTwo (Expr Name) -> Text
-    ppGroup expsALT = ppList $ toList_ expsALT
+    ppGroup (AtLeastTwo x y zs) = case nonEmpty zs of
+        Nothing   -> ppTwo x y
+        (Just es) -> (ppTwo x y) <> ppNonEmpty es
 
-    ppList :: [Expr Name] -> Text
-    ppList [e]    = pprExprNoIdent e
-    ppList (e:es) = (pprExprNoIdent e) <> "; " <> (ppList es)
-    ppList []     = error "bug: use only with AtLeastTwo"
+    ppTwo :: (Expr Name) -> (Expr Name) -> Text
+    ppTwo e1 e2 = (pprExprNoIdent e1) <> "; " <> (pprExprNoIdent e2)
+
+    ppNonEmpty :: NonEmpty (Expr Name) -> Text
+    ppNonEmpty (e:|es) = case nonEmpty es of
+        Nothing    -> pprExprNoIdent e
+        (Just es_) -> (pprExprNoIdent e) <> "; " <> ppNonEmpty es_
 
 type Indent = Int
 type Width = Int
@@ -79,7 +84,7 @@ ppExpr = f
     f (ExprLit l)       = text (pprLit l)
 
     ppGroup :: AtLeastTwo (Expr Name) -> Doc
-    ppGroup expsALT = vsep (punctuate (char ';') (fmap ppExpr (toList_ expsALT)))
+    ppGroup expsALT = parens $ vsep (punctuate (char ';') (fmap ppExpr (toList_ expsALT)))
 
     ppProcCall :: Indent -> (ProcCall Name (Expr Name)) -> Doc
     ppProcCall i (ProcCall name args) =

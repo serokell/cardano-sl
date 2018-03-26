@@ -9,18 +9,19 @@ import           Command (createCommandProcs)
 import           Control.Monad.Except (ExceptT (..), withExceptT)
 import           Data.Functor.Identity (Identity)
 import           Lang (Arg (..), Expr (..), Lit (..), Name, ProcCall (..))
-import           Lang.Syntax (AtLeastTwo (..), fromList_)
+import           Lang.Syntax (AtLeastTwo (..))
 import           Lang.Value (AddrDistrPart (..), Value (..))
 import           Pos.Util.CompileInfo (retrieveCompileTimeInfo, withCompileInfo)
 import           Printer (pprExpr)
 import           System.IO.Unsafe (unsafePerformIO)
 import           Test.Hspec (Expectation, Spec, SpecWith, describe, it, shouldBe)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck (Arbitrary (..), Gen, Property, generate, property)
+import           Test.QuickCheck (Arbitrary (..), Gen, Property, generate, oneof, property, sample,
+                                  suchThat)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 import           Text.PrettyPrint.ANSI.Leijen (Doc, text)
 
-import qualified Lang as Lang
+import qualified Lang
 import qualified Test.Hspec as Hspec
 import qualified Text.PrettyPrint.ANSI.Leijen as PP
 
@@ -69,8 +70,14 @@ instance Arbitrary (ProcCall Name (Expr Name)) where
     shrink = genericShrink
 
 instance Arbitrary (Lit) where
+    -- arbitrary = oneof [genNumber, genString, genPk]
     arbitrary = genericArbitrary
     shrink = genericShrink
+
+genNumber, genString, genPk :: Gen Lit
+genNumber = LitNumber <$> arbitrary
+genString = LitString <$> arbitrary
+genPk = LitPublicKey <$> arbitrary
 
 instance Arbitrary (Arg (Expr Name)) where
     arbitrary = genericArbitrary
@@ -82,10 +89,13 @@ exprArbitrary = (unsafePerformIO . generate) arbitrary
 expressions :: [Expr Name]
 expressions = [ ExprUnit
               , ExprLit (LitNumber 555)
-              , ExprGroup (fromList_ $ [(ExprLit (LitNumber 555)), ExprLit (LitHash $ genUnsafe arbitrary)])
-              , ExprGroup (fromList_ $ [(ExprLit (LitNumber 555)), ExprProcCall procCall])
-              , ExprGroup (fromList_ $ [(ExprLit (LitNumber 555)), ExprProcCall procCallWithFunc])
-              , ExprGroup (fromList_ $ [(ExprLit (LitNumber 555)), ExprProcCall procCallNestedFunc, ExprLit (LitString "Single ident")])
+              , ExprGroup (AtLeastTwo (ExprLit (LitNumber 555)) (ExprLit (LitHash $ genUnsafe arbitrary)) [])
+              , ExprGroup (AtLeastTwo (ExprLit (LitNumber 555)) (ExprProcCall procCall) [])
+              , ExprGroup (AtLeastTwo (ExprLit (LitNumber 555)) (ExprProcCall procCallWithFunc) [])
+              , ExprGroup (AtLeastTwo (ExprLit (LitNumber 555)) (ExprProcCall procCallNestedFunc) [ExprLit (LitString "Single ident")])
+            --   , ExprGroup (fromList_ $ [(ExprLit (LitNumber 555)), ExprProcCall procCall])
+            --   , ExprGroup (fromList_ $ [(ExprLit (LitNumber 555)), ExprProcCall procCallWithFunc])
+            --   , ExprGroup (fromList_ $ [(ExprLit (LitNumber 555)), ExprProcCall procCallNestedFunc, ExprLit (LitString "Single ident")])
               , ExprLit (LitString "jjl")
               , ExprLit (LitAddress $ genUnsafe arbitrary)
               , ExprLit (LitPublicKey $ genUnsafe arbitrary)
@@ -107,7 +117,7 @@ printTest = forM_ expressions $ \ex -> do
 
 foramatTest :: IO ()
 foramatTest = do
-    putText $ pprExpr (Just 100) $ ExprGroup $ fromList_ [(ExprLit (LitNumber 555)), ExprProcCall procCallNestedFunc]
+    putText $ pprExpr (Just 100) $ ExprGroup $ AtLeastTwo (ExprLit (LitNumber 555)) (ExprProcCall procCallNestedFunc) []
 
 procCall, procCallWithFunc, procCallNestedFunc :: ProcCall Name (Expr Name)
 procCall = ProcCall "foo-a" [ArgKw "foo-arg" (ExprLit (LitString "argValue")), (ArgPos (ExprLit (LitString "posValue"))), ArgKw "foo-a-arg-name" (ExprLit (LitString "1 idented"))]
@@ -139,8 +149,7 @@ values = [ ValueNumber $ genUnsafe arbitrary
         --  , ValueTxOut $ genUnsafe arbitrary
         --  , ValueList [Value]
          ]
-  where
-    genUnsafe = unsafePerformIO . generate
+
 
 instance Arbitrary AddrDistrPart where
     arbitrary = genericArbitrary
