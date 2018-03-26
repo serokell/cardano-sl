@@ -14,8 +14,10 @@ module Lang.Value
        , _ValueHash
        , _ValueBlockVersion
        , _ValueSoftwareVersion
-       , _ValueBlockVersionData
+       , _ValueSoftforkRule
+       , _ValueTxFeePolicy
        , _ValueBlockVersionModifier
+       , _ValueBlockVersionData
        , _ValueProposeUpdateSystem
        , _ValueAddrDistrPart
        , _ValueAddrStakeDistribution
@@ -42,7 +44,9 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShr
 import           Pos.Arbitrary.Txp ()
 import           Pos.Core (AddrStakeDistribution, Address, BlockVersion, CoinPortion,
                            SoftwareVersion, StakeholderId)
+import           Pos.Core.Common (TxFeePolicy)
 import           Pos.Core.Txp (TxOut)
+import           Pos.Core.Update (SoftforkRule)
 import           Pos.Crypto (AHash, PublicKey)
 import           Pos.Update (BlockVersionData, BlockVersionModifier, SystemTag)
 
@@ -108,6 +112,8 @@ data Value
     | ValueHash AHash
     | ValueBlockVersion BlockVersion
     | ValueSoftwareVersion SoftwareVersion
+    | ValueSoftforkRule SoftforkRule
+    | ValueTxFeePolicy TxFeePolicy
     | ValueBlockVersionModifier BlockVersionModifier
     | ValueBlockVersionData BlockVersionData
     | ValueProposeUpdateSystem ProposeUpdateSystem

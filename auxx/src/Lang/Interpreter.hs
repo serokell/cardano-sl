@@ -36,13 +36,13 @@ eval = \case
 -- of the last one. Equivalent to @fmap NE.last . traverse eval@,
 -- but is single-pass.
 evalExprGroup :: AtLeastTwo (Expr (CommandProc m)) -> EvalT m Value
-evalExprGroup (AtLeastTwo x y zs) = case nonEmpty zs of
-    Nothing -> eval x *> eval y
-    Just es -> eval x *> eval y *> evalExprNonEmpty es
+evalExprGroup (AtLeastTwo x1 x2 xs) = case nonEmpty xs of
+    Nothing -> eval x1 *> eval x2
+    Just es -> eval x1 *> eval x2 *> evalExprNonEmpty es
   where
-    evalExprNonEmpty (z:|zs_) = case nonEmpty zs_ of
-        Nothing   -> eval z
-        (Just es) -> eval z *> evalExprNonEmpty es
+    evalExprNonEmpty (y:|ys) = case nonEmpty ys of
+        Nothing   -> eval y
+        (Just es) -> eval y *> evalExprNonEmpty es
 
 evalProcCall :: ProcCall (CommandProc m) Value -> EvalT m Value
 evalProcCall (ProcCall CommandProc{..} args) = do

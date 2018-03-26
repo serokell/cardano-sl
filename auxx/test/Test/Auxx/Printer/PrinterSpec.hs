@@ -48,23 +48,17 @@ propHandleRandomExpr = property p
 itPrintsCorrectly :: Expr Name -> SpecWith (Hspec.Arg Expectation)
 itPrintsCorrectly expr =
     it ("handles " <> show expr) $
-        exprPrinter expr
-
-itConvertsCorrectly :: Lang.Value -> SpecWith (Hspec.Arg Expectation)
-itConvertsCorrectly val =
-    it ("handles " <> show val) $
-        valConverter val
-
-exprPrinter :: Expr Name -> Expectation
-exprPrinter expr = runIdentity exprPrinterId
+        runIdentity exprPrinterId
   where
     exprPrinterId :: Identity Expectation
     exprPrinterId = do
         eithParsed <- (parseBack . (pprExpr (Just 100))) expr
         return $ eithParsed `shouldBe` (Right expr)
 
-valConverter :: Lang.Value -> Expectation
-valConverter val = runIdentity valConverterId
+itConvertsCorrectly :: Lang.Value -> SpecWith (Hspec.Arg Expectation)
+itConvertsCorrectly val =
+    it ("handles " <> show val) $
+        runIdentity valConverterId
   where
     valConverterId :: Identity Expectation
     valConverterId = do
@@ -116,22 +110,23 @@ instance Arbitrary (Arg (Expr Name)) where
 
 genUnsafe :: Gen c -> c
 genUnsafe = unsafePerformIO . generate
+
 expressions :: [Expr Name]
 expressions =
     [ ExprUnit
     , ExprLit (LitNumber 555)
-              , ExprGroup (AtLeastTwo (ExprLit (LitNumber 555)) (ExprLit (LitHash $ genUnsafe arbitrary)) [])
-              , ExprGroup (AtLeastTwo (ExprLit (LitNumber 555)) (ExprProcCall procCall) [])
-              , ExprGroup (AtLeastTwo (ExprLit (LitNumber 555)) (ExprProcCall procCallWithFunc) [])
-              , ExprGroup (AtLeastTwo (ExprLit (LitNumber 555)) (ExprProcCall procCallNestedFunc) [ExprLit (LitString "Single ident")])
-    , ExprLit (LitString "jjl")
+    , ExprGroup (AtLeastTwo (ExprLit (LitNumber 555)) (ExprLit (LitHash $ genUnsafe arbitrary)) [])
+    , ExprGroup (AtLeastTwo (ExprLit (LitNumber 555)) (ExprProcCall procCall) [])
+    , ExprGroup (AtLeastTwo (ExprLit (LitNumber 555)) (ExprProcCall procCallWithFunc) [])
+    , ExprGroup (AtLeastTwo (ExprLit (LitNumber 555)) (ExprProcCall procCallNestedFunc) [ExprLit (LitString "Single ident")])
+    , ExprLit (LitString          "jjl")
     , ExprLit (LitAddress         $ genUnsafe arbitrary)
     , ExprLit (LitPublicKey       $ genUnsafe arbitrary)
     , ExprLit (LitHash            $ genUnsafe arbitrary)
     , ExprLit (LitStakeholderId   $ genUnsafe arbitrary)
     , ExprLit (LitBlockVersion    $ genUnsafe arbitrary)
     , ExprLit (LitSoftwareVersion $ genUnsafe arbitrary)
-    , ExprLit (LitFilePath "/kkk")
+    , ExprLit (LitFilePath        "/kkk")
     ]
   where
     procCall, procCallWithFunc, procCallNestedFunc :: ProcCall Name (Expr Name)

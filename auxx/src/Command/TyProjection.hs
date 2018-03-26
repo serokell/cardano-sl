@@ -8,9 +8,12 @@ module Command.TyProjection
        , tyFilePath
        , tyInt
        , tyWord
+       , tyWord8
        , tyWord32
+       , tyWord64
        , tyByte
        , tySecond
+       , tyCoeff
        , tyBool
        , tyScriptVersion
        , tyCoin
@@ -22,33 +25,39 @@ module Command.TyProjection
        , tyBlockVersion
        , tySoftwareVersion
        , tyBlockVersionModifier
+       , tySoftforkRule
+       , tyTxFeePolicy
        , tyProposeUpdateSystem
        , tySystemTag
        , tyApplicationName
        , tyString
+       , tyByteString
        ) where
 
 import           Universum
 
+import qualified Data.ByteString.Char8 as BS (pack)
 import           Data.Scientific (Scientific, floatingOrInteger, toBoundedInteger, toRealFloat)
 import           Data.Time.Units (TimeUnit, convertUnit)
 import           Serokell.Data.Memory.Units (Byte, fromBytes)
 import           Serokell.Util (sec)
 
-import           Pos.Core (AddrStakeDistribution (..), Address, BlockVersion, Coin,
-                           CoinPortion, EpochIndex, ScriptVersion, SoftwareVersion, StakeholderId,
-                           mkCoin, unsafeCoinPortionFromDouble, unsafeGetCoin)
+import           Pos.Core (AddrStakeDistribution (..), Address, BlockVersion, Coin, CoinPortion,
+                           EpochIndex, ScriptVersion, SoftwareVersion, StakeholderId, mkCoin,
+                           unsafeCoinPortionFromDouble, unsafeGetCoin)
+import           Pos.Core.Common (Coeff (..), TxFeePolicy)
 import           Pos.Core.Txp (TxOut (..))
+import           Pos.Core.Update (SoftforkRule)
 import           Pos.Crypto (AHash (..), Hash, PublicKey)
-import           Pos.Update (BlockVersionModifier (..), ApplicationName (..), SystemTag (..))
+import           Pos.Update (ApplicationName (..), BlockVersionModifier (..), SystemTag (..))
 
 import           Lang.Argument (TyProjection (..), TypeName (..))
-import           Lang.Value (AddrDistrPart (..), ProposeUpdateSystem (..),
-                             Value (..), _ValueAddrDistrPart, _ValueAddrStakeDistribution,
-                             _ValueAddress, _ValueBlockVersion, _ValueBlockVersionModifier,
-                             _ValueBool, _ValueFilePath, _ValueHash, _ValueNumber,
-                             _ValueProposeUpdateSystem, _ValuePublicKey,
-                             _ValueSoftwareVersion, _ValueStakeholderId, _ValueString, _ValueTxOut)
+import           Lang.Value (AddrDistrPart (..), ProposeUpdateSystem (..), Value (..),
+                             _ValueAddrDistrPart, _ValueAddrStakeDistribution, _ValueAddress,
+                             _ValueBlockVersion, _ValueBlockVersionModifier, _ValueBool,
+                             _ValueFilePath, _ValueHash, _ValueNumber, _ValueProposeUpdateSystem,
+                             _ValuePublicKey, _ValueSoftforkRule, _ValueSoftwareVersion,
+                             _ValueStakeholderId, _ValueString, _ValueTxFeePolicy, _ValueTxOut)
 
 tyValue :: TyProjection Value
 tyValue = TyProjection "Value" Just
@@ -84,8 +93,14 @@ tyInt = TyProjection "Int" (toBoundedInteger <=< preview _ValueNumber)
 tyWord :: TyProjection Word
 tyWord = TyProjection "Word" (toBoundedInteger <=< preview _ValueNumber)
 
+tyWord8 :: TyProjection Word8
+tyWord8 = TyProjection "Word8" (toBoundedInteger <=< preview _ValueNumber)
+
 tyWord32 :: TyProjection Word32
 tyWord32 = TyProjection "Word32" (toBoundedInteger <=< preview _ValueNumber)
+
+tyWord64 :: TyProjection Word64
+tyWord64 = TyProjection "Word64" (toBoundedInteger <=< preview _ValueNumber)
 
 tyByte :: TyProjection Byte
 tyByte = fromBytes <$> TyProjection "Byte" (sciToInteger <=< preview _ValueNumber)
@@ -95,6 +110,9 @@ sciToInteger = either (const Nothing) Just . floatingOrInteger @Double @Integer
 
 tySecond :: TimeUnit a => TyProjection a
 tySecond = convertUnit . sec <$> TyProjection "Second" (toBoundedInteger <=< preview _ValueNumber)
+
+tyCoeff :: TyProjection Coeff
+tyCoeff = Coeff . realToFrac <$> TyProjection "Coeff" (preview _ValueNumber)
 
 tyScriptVersion :: TyProjection ScriptVersion
 tyScriptVersion = TyProjection "ScriptVersion" (toBoundedInteger <=< preview _ValueNumber)
@@ -145,6 +163,12 @@ tySoftwareVersion = TyProjection "SoftwareVersion" (preview _ValueSoftwareVersio
 tyBlockVersionModifier :: TyProjection BlockVersionModifier
 tyBlockVersionModifier = TyProjection "BlockVersionModifier" (preview _ValueBlockVersionModifier)
 
+tySoftforkRule :: TyProjection SoftforkRule
+tySoftforkRule = TyProjection "SoftforkRule" (preview _ValueSoftforkRule)
+
+tyTxFeePolicy :: TyProjection TxFeePolicy
+tyTxFeePolicy = TyProjection "TxFeePolicy" (preview _ValueTxFeePolicy)
+
 tyProposeUpdateSystem :: TyProjection ProposeUpdateSystem
 tyProposeUpdateSystem = TyProjection "ProposeUpdateSystem" (preview _ValueProposeUpdateSystem)
 
@@ -156,3 +180,6 @@ tyApplicationName = TyProjection "ApplicationName" ((fmap . fmap) (ApplicationNa
 
 tyString :: TyProjection String
 tyString = TyProjection "String" (preview _ValueString)
+
+tyByteString :: TyProjection ByteString
+tyByteString = BS.pack <$> TyProjection "ByteString" (preview _ValueString)

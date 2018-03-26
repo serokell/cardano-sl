@@ -20,9 +20,11 @@ import           Pos.Client.KeyStorage (addSecretKey, getSecretKeysPlain)
 import           Pos.Client.Txp.Balances (getBalance)
 import           Pos.Core (AddrStakeDistribution (..), Address, SoftwareVersion (..), StakeholderId,
                            addressHash, mkMultiKeyDistr, unsafeGetCoin)
-import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..), makeAddress)
+import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..), TxFeePolicy (..),
+                                  TxSizeLinear (..), makeAddress)
 import           Pos.Core.Configuration (genesisSecretKeys)
 import           Pos.Core.Txp (TxOut (..))
+import           Pos.Core.Update (SoftforkRule (..))
 import           Pos.Crypto (PublicKey, emptyPassphrase, encToPublic, fullPublicKeyF, hashHexF,
                              noPassEncrypt, safeCreatePsk, unsafeCheatingHashCoerce, withSafeSigner)
 import           Pos.DB.Class (MonadGState (..))
@@ -39,11 +41,12 @@ import qualified Command.Rollback as Rollback
 import qualified Command.Tx as Tx
 import           Command.TyProjection (tyAddrDistrPart, tyAddrStakeDistr, tyAddress,
                                        tyApplicationName, tyBlockVersion, tyBlockVersionModifier,
-                                       tyBool, tyByte, tyCoin, tyCoinPortion, tyEither,
-                                       tyEpochIndex, tyFilePath, tyHash, tyInt,
+                                       tyBool, tyByte, tyByteString, tyCoeff, tyCoin, tyCoinPortion,
+                                       tyEither, tyEpochIndex, tyFilePath, tyHash, tyInt,
                                        tyProposeUpdateSystem, tyPublicKey, tyScriptVersion,
-                                       tySecond, tySoftwareVersion, tyStakeholderId, tyString,
-                                       tySystemTag, tyTxOut, tyValue, tyWord, tyWord32)
+                                       tySecond, tySoftforkRule, tySoftwareVersion, tyStakeholderId,
+                                       tyString, tySystemTag, tyTxFeePolicy, tyTxOut, tyValue,
+                                       tyWord, tyWord32, tyWord64, tyWord8)
 import qualified Command.Update as Update
 import           Lang.Argument (getArg, getArgMany, getArgOpt, getArgSome, typeDirectedKwAnn)
 import           Lang.Command (CommandProc (..), UnavailableCommand (..))
@@ -271,23 +274,57 @@ createCommandProcs hasMonadIO hasAuxxMode printAction mDiffusion = rights . fix 
     },
 
     return CommandProc
+    { cpName = "softfork-rule"
+    , cpArgumentPrepare = identity
+    , cpArgumentConsumer = do
+        srInitThd <- getArg tyCoinPortion "init-thd"
+        srMinThd <- getArg tyCoinPortion "min-thd"
+        srThdDecrement <- getArg tyCoinPortion "thd-decrement"
+        pure SoftforkRule {..}
+    , cpExec = return . ValueSoftforkRule
+    , cpHelp = "construct a SoftforkRule"
+    },
+
+    return CommandProc
+    { cpName = "tx-fee-policy-tx-size-linear"
+    , cpArgumentPrepare = identity
+    , cpArgumentConsumer = do
+        a <- getArg tyCoeff "a"
+        b <- getArg tyCoeff "b"
+        pure $ TxFeePolicyTxSizeLinear $ TxSizeLinear (a) b
+    , cpExec = return . ValueTxFeePolicy
+    , cpHelp = "construct a TxFeePolicy that is linearly proportional to tx size"
+    },
+
+    return CommandProc
+    { cpName = "tx-fee-policy-unknown"
+    , cpArgumentPrepare = identity
+    , cpArgumentConsumer = do
+        v <- getArg tyWord8 "v"
+        bs <- getArg tyByteString "bs"
+        pure $ TxFeePolicyUnknown v bs
+    , cpExec = return . ValueTxFeePolicy
+    , cpHelp = "construct an unknown TxFeePolicy"
+    },
+
+    return CommandProc
     { cpName = "bvm"
     , cpArgumentPrepare = identity
     , cpArgumentConsumer = do
-        bvmScriptVersion <- getArgOpt tyScriptVersion "script-version"
-        bvmSlotDuration <- getArgOpt tySecond "slot-duration"
-        bvmMaxBlockSize <- getArgOpt tyByte "max-block-size"
-        bvmMaxHeaderSize <- getArgOpt tyByte "max-header-size"
-        bvmMaxTxSize <- getArgOpt tyByte "max-tx-size"
-        bvmMaxProposalSize <- getArgOpt tyByte "max-proposal-size"
-        bvmMpcThd <- getArgOpt tyCoinPortion "mpc-thd"
-        bvmHeavyDelThd <- getArgOpt tyCoinPortion "heavy-del-thd"
-        bvmUpdateVoteThd <- getArgOpt tyCoinPortion "update-vote-thd"
+        bvmScriptVersion     <- getArgOpt tyScriptVersion "script-version"
+        bvmSlotDuration      <- getArgOpt tySecond "slot-duration"
+        bvmMaxBlockSize      <- getArgOpt tyByte "max-block-size"
+        bvmMaxHeaderSize     <- getArgOpt tyByte "max-header-size"
+        bvmMaxTxSize         <- getArgOpt tyByte "max-tx-size"
+        bvmMaxProposalSize   <- getArgOpt tyByte "max-proposal-size"
+        bvmMpcThd            <- getArgOpt tyCoinPortion "mpc-thd"
+        bvmHeavyDelThd       <- getArgOpt tyCoinPortion "heavy-del-thd"
+        bvmUpdateVoteThd     <- getArgOpt tyCoinPortion "update-vote-thd"
         bvmUpdateProposalThd <- getArgOpt tyCoinPortion "update-proposal-thd"
-        let bvmUpdateImplicit = Nothing -- TODO
-        let bvmSoftforkRule = Nothing -- TODO
-        let bvmTxFeePolicy = Nothing -- TODO
-        bvmUnlockStakeEpoch <- getArgOpt tyEpochIndex "unlock-stake-epoch"
+        bvmUpdateImplicit    <- getArgOpt tyWord64 "update-implicit"
+        bvmSoftforkRule      <- getArgOpt tySoftforkRule "softfork-rule"
+        bvmTxFeePolicy       <- getArgOpt tyTxFeePolicy "tx-fee-policy"
+        bvmUnlockStakeEpoch  <- getArgOpt tyEpochIndex "unlock-stake-epoch"
         pure BlockVersionModifier{..}
     , cpExec = return . ValueBlockVersionModifier
     , cpHelp = "construct a BlockVersionModifier"

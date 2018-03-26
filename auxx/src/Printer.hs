@@ -8,6 +8,9 @@ module Printer
 
 import           Universum
 
+import qualified Data.ByteString.Char8 as BS
+import           Data.Coerce (coerce)
+import           Data.Fixed (Nano)
 import qualified Data.Map as M (toList)
 import           Data.Scientific (Scientific)
 import           Data.Time.Units (Second, convertUnit)
@@ -22,10 +25,12 @@ import           Lang.Syntax (Arg (..), AtLeastTwo (..), Expr (..), Lit (..), Pr
                               toList_)
 import qualified Lang.Value as Lang
 import           Pos.Core (ApplicationName (..), SoftwareVersion (..))
-import           Pos.Core.Common (AddrStakeDistribution (..), Coin (..), CoinPortion (..),
+import           Pos.Core.Common (AddrStakeDistribution (..), Coeff (..), Coin (..),
+                                  CoinPortion (..), TxFeePolicy (..), TxSizeLinear (..),
                                   coinPortionDenominator)
 import           Pos.Core.Txp (TxOut (..))
-import           Pos.Core.Update (BlockVersionData, BlockVersionModifier (..))
+import           Pos.Core.Update (BlockVersionData, BlockVersionModifier (..), SoftforkRule (..),
+                                  SystemTag (..))
 import           Pos.Crypto (AHash (..), fullPublicKeyF, hashHexF)
 
 pprLit :: Lit -> Text
@@ -136,6 +141,8 @@ valueToExpr = \case
     Lang.ValueHash h                    -> ExprLit $ LitHash h
     Lang.ValueBlockVersion v            -> ExprLit $ LitBlockVersion v
     Lang.ValueSoftwareVersion v         -> ExprLit $ LitSoftwareVersion v
+    Lang.ValueSoftforkRule sr           -> ExprProcCall $ ProcCall "softfork-rule" $ srToArgs sr
+    Lang.ValueTxFeePolicy tfp           -> ExprProcCall $ tfpToProcCall tfp
     Lang.ValueBlockVersionModifier bvm  -> ExprProcCall $ ProcCall "bvm" $ bvmToArgs bvm
     Lang.ValueBlockVersionData bvd      -> ExprProcCall $ ProcCall "bvd-read" $ bvdToArgs bvd
     Lang.ValueProposeUpdateSystem pus   -> ExprProcCall $ ProcCall "upd-bin" $ pusToArgs pus
@@ -149,14 +156,35 @@ valueToExpr = \case
     boolToProcName = \case
         True  -> "true"
         False -> "false"
+
     txOutToArgs :: TxOut -> [Arg (Expr Name)]
     txOutToArgs TxOut {..} =
         [ ArgPos (ExprLit $ LitAddress txOutAddress)
         , ArgPos (ExprLit $ LitNumber $ fromIntegral $ getCoin txOutValue)
         ]
+
     coinPortionToScientific :: CoinPortion -> Scientific
     coinPortionToScientific (getCoinPortion -> num) =
         (fromIntegral num) / (fromIntegral coinPortionDenominator)
+
+    srToArgs SoftforkRule {..} =
+        [ ArgPos (ExprLit $ LitNumber $ coinPortionToScientific srInitThd)
+        , ArgPos (ExprLit $ LitNumber $ coinPortionToScientific srMinThd)
+        , ArgPos (ExprLit $ LitNumber $ coinPortionToScientific srThdDecrement)
+        ]
+
+    tfpToProcCall = \case
+        TxFeePolicyTxSizeLinear (TxSizeLinear a b) ->
+            ProcCall "tx-fee-policy-tx-size-linear"
+                [ ArgPos (ExprLit $ LitNumber $ realToFrac @Nano @Scientific $ coerce a)
+                , ArgPos (ExprLit $ LitNumber $ realToFrac @Nano @Scientific $ coerce b)
+                ]
+        TxFeePolicyUnknown v bs ->
+            ProcCall "tx-fee-policy-unknown"
+                [ ArgPos (ExprLit $ LitNumber $ fromIntegral v)
+                , ArgPos (ExprLit $ LitString $ BS.unpack bs )
+                ]
+
     bvmToArgs :: BlockVersionModifier -> [Arg (Expr Name)]
     bvmToArgs BlockVersionModifier {..} = catMaybes
         [ ArgKw "script-version"      . ExprLit . LitNumber . fromIntegral <$> bvmScriptVersion
@@ -169,20 +197,20 @@ valueToExpr = \case
         , ArgKw "heavy-del-thd"       . ExprLit . LitNumber . coinPortionToScientific <$> bvmHeavyDelThd
         , ArgKw "update-vote-thd"     . ExprLit . LitNumber . coinPortionToScientific <$> bvmUpdateVoteThd
         , ArgKw "update-proposal-thd" . ExprLit . LitNumber . coinPortionToScientific <$> bvmUpdateProposalThd
-        -- (see Proc.hs)
-        -- TODO bvmUpdateImplicit
-        -- TODO bvmSoftforkRule
-        -- TODO bvmTxFeePolicy
+        , ArgKw "update-implicit"     . ExprLit . LitNumber . fromIntegral <$> bvmUpdateImplicit
+        , ArgKw "softfork-rule"       . ExprProcCall . ProcCall "softfork-rule" . srToArgs <$> bvmSoftforkRule
+        , ArgKw "tx-fee-policy"       . ExprProcCall . tfpToProcCall <$> bvmTxFeePolicy
         , ArgKw "unlock-stake-epoch"  . ExprLit . LitNumber . fromIntegral <$> bvmUnlockStakeEpoch
         ]
       where
         toSec = convertUnit @_ @Second
+
     bvdToArgs :: BlockVersionData -> [Arg (Expr Name)]
-    bvdToArgs bvd = [ArgPos $ ExprLit $ LitString $ show bvd]
+    bvdToArgs bvd = [ArgPos (ExprLit $ LitString $ show bvd)]
 
     pusToArgs :: Lang.ProposeUpdateSystem -> [Arg (Expr Name)]
     pusToArgs Lang.ProposeUpdateSystem {..} = catMaybes
-        [ Just $ ArgPos $ ExprLit $ LitString $ show pusSystemTag
+        [ Just $ ArgPos $ ExprLit $ LitString $ toString $ getSystemTag pusSystemTag
         , ArgKw "installer-path" . ExprLit . LitFilePath <$> pusInstallerPath
         , ArgKw "bin-diff-path"  . ExprLit . LitFilePath <$> pusBinDiffPath
         ]
