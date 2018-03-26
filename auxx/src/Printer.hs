@@ -1,10 +1,11 @@
 module Printer
     ( pprLit
-    , pprExpr) where
+    , pprExpr
+    , ppExpr) where
 
 import           Universum
 
-import           Formatting (build, float, sformat, stext, (%))
+import           Formatting (build, float, sformat, stext, string, (%))
 import           Lang.DisplayError (nameToDoc, text)
 import           Lang.Name (Name)
 import           Lang.Syntax (Arg (..), AtLeastTwo (..), Expr (..), Lit (..), ProcCall (..),
@@ -19,7 +20,7 @@ pprLit :: Lit -> Text
 pprLit = f
   where
     f          (LitNumber a) = sformat float a
-    f          (LitString a) = sformat ("\""%stext%"\"") (toText a)
+    f          (LitString a) = sformat ("\""%string%"\"") a
     f         (LitAddress a) = pretty a
     f       (LitPublicKey a) = sformat fullPublicKeyF a
     f   (LitStakeholderId a) = sformat hashHexF a
@@ -36,37 +37,36 @@ pprExprNoIdent :: Expr Name -> Text
 pprExprNoIdent = f
   where
     f ExprUnit          = sformat (stext) "()"
-    f (ExprGroup exps)  = ppGroup exps
-    f (ExprProcCall pc) = ppProcCall pc
+    f (ExprGroup exps)  = pprGroup exps
+    f (ExprProcCall pc) = pprProcCall pc
     f (ExprLit l)       = pprLit l
 
-    ppProcCall (ProcCall name args) = (sformat build name)
+    pprProcCall (ProcCall name args) = (sformat build name)
         <> " "
         <> concatSpace args
 
     concatSpace []     = ""
-    -- concatSpace [arg]  = ppArg arg -- redundant
-    concatSpace (a:as) = (ppArg a) <> (concatSpace as)
+    concatSpace (a:as) = (pprArg a) <> (concatSpace as)
 
-    ppArg (ArgPos pos)     = parensIfProcCall pos
-    ppArg (ArgKw name val) = (sformat build name) <> ": " <> (parensIfProcCall val)
+    pprArg (ArgPos pos)     = parensIfProcCall pos
+    pprArg (ArgKw name val) = (sformat build name) <> ": " <> (parensIfProcCall val)
 
     -- Nested procCall's should be in parentheses
-    parensIfProcCall (ExprProcCall pc) = parens_ (ppProcCall pc)
+    parensIfProcCall (ExprProcCall pc) = parens_ (pprProcCall pc)
     parensIfProcCall anything          = pprExprNoIdent anything
 
-    ppGroup :: AtLeastTwo (Expr Name) -> Text
-    ppGroup (AtLeastTwo x y zs) = case nonEmpty zs of
-        Nothing   -> parens_ (ppTwo x y)
-        (Just es) -> parens_ ((ppTwo x y) <> ppNonEmpty es)
+    pprGroup :: AtLeastTwo (Expr Name) -> Text
+    pprGroup (AtLeastTwo x y zs) = case nonEmpty zs of
+        Nothing   -> parens_ (pprTwo x y)
+        (Just es) -> parens_ ((pprTwo x y) <> pprNonEmpty es)
 
-    ppTwo :: (Expr Name) -> (Expr Name) -> Text
-    ppTwo e1 e2 = (pprExprNoIdent e1) <> "; " <> (pprExprNoIdent e2)
+    pprTwo :: (Expr Name) -> (Expr Name) -> Text
+    pprTwo e1 e2 = (pprExprNoIdent e1) <> "; " <> (pprExprNoIdent e2)
 
-    ppNonEmpty :: NonEmpty (Expr Name) -> Text
-    ppNonEmpty (e:|es) = case nonEmpty es of
+    pprNonEmpty :: NonEmpty (Expr Name) -> Text
+    pprNonEmpty (e:|es) = case nonEmpty es of
         Nothing    -> pprExprNoIdent e
-        (Just es_) -> (pprExprNoIdent e) <> "; " <> ppNonEmpty es_
+        (Just es_) -> (pprExprNoIdent e) <> "; " <> pprNonEmpty es_
 
     parens_ :: Text -> Text
     parens_ t = sformat ("("%stext%")") t
