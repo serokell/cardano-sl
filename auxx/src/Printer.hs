@@ -4,19 +4,15 @@ module Printer
 
 import           Universum
 
--- import           Data.Text as Text
 import           Formatting (build, float, sformat, stext, (%))
 import           Lang.DisplayError (nameToDoc, text)
 import           Lang.Name (Name)
 import           Lang.Syntax (Arg (..), AtLeastTwo (..), Expr (..), Lit (..), ProcCall (..),
                               toList_)
 import           Pos.Core (ApplicationName (..), SoftwareVersion (..))
--- import           Pos.Core.Common (CoinPortion (..))
--- import           Pos.Core.Update (BlockVersionData)
 import           Pos.Crypto (AHash (..), fullPublicKeyF, hashHexF)
 import           Text.PrettyPrint.ANSI.Leijen (Doc, char, indent, parens, punctuate, vsep)
 
--- import qualified Data.List.NonEmpty as NE
 import qualified Text.PrettyPrint.ANSI.Leijen as PP
 
 pprLit :: Lit -> Text
@@ -49,20 +45,20 @@ pprExprNoIdent = f
         <> concatSpace args
 
     concatSpace []     = ""
-    concatSpace [arg]  = ppArg arg -- redundant
+    -- concatSpace [arg]  = ppArg arg -- redundant
     concatSpace (a:as) = (ppArg a) <> (concatSpace as)
 
     ppArg (ArgPos pos)     = pprExprNoIdentNested pos
     ppArg (ArgKw name val) = (sformat build name) <> ": " <> (pprExprNoIdent val)
 
     -- Nested procCall's should be in parentheses
-    pprExprNoIdentNested (ExprProcCall pc) = "(" <> ppProcCall pc <> ")"
+    pprExprNoIdentNested (ExprProcCall pc) = parens_ (ppProcCall pc)
     pprExprNoIdentNested anything          = pprExprNoIdentNested anything
 
     ppGroup :: AtLeastTwo (Expr Name) -> Text
     ppGroup (AtLeastTwo x y zs) = case nonEmpty zs of
-        Nothing   -> ppTwo x y
-        (Just es) -> (ppTwo x y) <> ppNonEmpty es
+        Nothing   -> parens_ (ppTwo x y)
+        (Just es) -> parens_ ((ppTwo x y) <> ppNonEmpty es)
 
     ppTwo :: (Expr Name) -> (Expr Name) -> Text
     ppTwo e1 e2 = (pprExprNoIdent e1) <> "; " <> (pprExprNoIdent e2)
@@ -71,6 +67,9 @@ pprExprNoIdent = f
     ppNonEmpty (e:|es) = case nonEmpty es of
         Nothing    -> pprExprNoIdent e
         (Just es_) -> (pprExprNoIdent e) <> "; " <> ppNonEmpty es_
+
+    parens_ :: Text -> Text
+    parens_ t = sformat ("("%stext%")") t
 
 type Indent = Int
 type Width = Int
@@ -101,16 +100,7 @@ ppExpr = f
         anything          -> ppExpr anything
     ppArg _ (ArgKw name val) = (nameToDoc name) PP.<> (text ": ") PP.<> (ppExpr val)
 
-
--- formatTest :: IO ()
--- formatTest = do
---     putText $ pprExpr (Just 100) $ ExprGroup $ fromList_ [(ExprLit (LitNumber 555)), ExprProcCall procCallNestedFunc]
-
--- procCall = ProcCall "foo-a" [ArgKw "foo-arg" (ExprLit (LitString "argValue")), (ArgPos (ExprLit (LitString "posValue"))), ArgKw "foo-a-arg-name" (ExprLit (LitString "1 idented"))]
--- procCallWithFunc = ProcCall "foo-b" [ArgKw "foo-b-arg-name" (ExprLit (LitString "argValue")), (ArgPos (ExprProcCall procCall)), ArgKw "foo-b-arg-name" (ExprLit (LitString "2 idented"))]
--- procCallNestedFunc = ProcCall "foo-c" [ArgKw "foo-c-arg-name" (ExprLit (LitString "argValue")), (ArgPos (ExprProcCall procCallWithFunc))]
-
-
+-- Do we need a width here?
 pprExpr :: Maybe Width -> Expr Name -> Text
-pprExpr Nothing      = pprExprNoIdent
-pprExpr (Just width) = show . ppExpr
+pprExpr Nothing  = pprExprNoIdent
+pprExpr (Just _) = show . ppExpr
