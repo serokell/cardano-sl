@@ -16,8 +16,6 @@ import           Lang.Name (Name)
 import           Lang.Syntax (AtLeastTwo (..), Expr (..), Lit (..), ProcCall (..))
 import           Lang.Value (Value (..))
 
-import qualified Lang.Syntax as Lang
-
 data EvalError = InvalidArguments Name ProcError
     deriving (Eq, Ord, Show)
 
@@ -42,7 +40,7 @@ evalExprGroup (AtLeastTwo x y zs) = case nonEmpty zs of
     Nothing -> eval x *> eval y
     Just es -> eval x *> eval y *> evalExprNonEmpty es
   where
-    evalExprNonEmpty (z:|zs) = case nonEmpty zs of
+    evalExprNonEmpty (z:|zs_) = case nonEmpty zs_ of
         Nothing   -> eval z
         (Just es) -> eval z *> evalExprNonEmpty es
 

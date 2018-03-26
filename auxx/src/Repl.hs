@@ -38,7 +38,6 @@ import           Control.Concurrent.Async (race_)
 import           Control.Exception.Safe (displayException, handleAsync)
 import           Data.Text (strip)
 import           System.Console.Haskeline (InputT)
-import           Lang.Value (Value (..))
 import qualified System.Console.Haskeline as Haskeline
 
 
@@ -59,7 +58,7 @@ data CommandResult
 -- commands to execute (via 'withCommand') and get the Haskeline-compatible
 -- printing action (via 'getPrintAction').
 data WithCommandAction = WithCommandAction
-    { withCommand    :: forall m. (MonadIO m, MonadCatch m) => (Text -> m ()) -> m ()
+    { withCommand :: forall m. (MonadIO m, MonadCatch m) => (Text -> m ()) -> m ()
         -- ^ Get the next command to execute. Rather than using simple @m
         -- 'Command'@ method, we use a CPS-ed version to guarantee valid
         -- exception handling, automate 'CommandResult' detection, and avoid
