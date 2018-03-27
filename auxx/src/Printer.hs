@@ -13,7 +13,7 @@ import           Data.Coerce (coerce)
 import           Data.Fixed (Nano)
 import qualified Data.Map as M (toList)
 import           Data.Scientific (Scientific)
-import           Data.Time.Units (Second, convertUnit)
+import           Data.Time.Units (Millisecond)
 import           Formatting (build, float, sformat, stext, string, (%))
 import           Lang.DisplayError (nameToDoc, text)
 import           Prelude (ShowS)
@@ -188,7 +188,7 @@ valueToExpr = \case
     bvmToArgs :: BlockVersionModifier -> [Arg (Expr Name)]
     bvmToArgs BlockVersionModifier {..} = catMaybes
         [ ArgKw "script-version"      . ExprLit . LitNumber . fromIntegral <$> bvmScriptVersion
-        , ArgKw "slot-duration"       . ExprLit . LitNumber . fromIntegral . toSec <$> bvmSlotDuration
+        , ArgKw "slot-duration"       . ExprLit . LitNumber . millisecToSec <$> bvmSlotDuration
         , ArgKw "max-block-size"      . ExprLit . LitNumber . fromIntegral <$> bvmMaxBlockSize
         , ArgKw "max-header-size"     . ExprLit . LitNumber . fromIntegral <$> bvmMaxHeaderSize
         , ArgKw "max-tx-size"         . ExprLit . LitNumber . fromIntegral <$> bvmMaxTxSize
@@ -203,7 +203,8 @@ valueToExpr = \case
         , ArgKw "unlock-stake-epoch"  . ExprLit . LitNumber . fromIntegral <$> bvmUnlockStakeEpoch
         ]
       where
-        toSec = convertUnit @_ @Second
+        millisecToSec :: Millisecond -> Scientific
+        millisecToSec = (/ 1e3) . fromIntegral
 
     bvdToArgs :: BlockVersionData -> [Arg (Expr Name)]
     bvdToArgs bvd = [ArgPos (ExprLit $ LitString $ show bvd)]
