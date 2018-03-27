@@ -10,6 +10,7 @@ import           Universum
 
 import qualified Data.Map as M (toList)
 import           Data.Scientific (Scientific)
+import qualified Data.Text as T
 import           Data.Time.Units (Second, convertUnit)
 import           Formatting (build, float, sformat, stext, string, (%))
 import           Lang.DisplayError (nameToDoc, text)
@@ -58,35 +59,31 @@ pprExpr (Just width) = showSToText . PP.displayS . PP.renderPretty 0.4 width . p
 pprExprNoIdent :: Expr Name -> Text
 pprExprNoIdent = f
   where
-    f ExprUnit          = sformat (stext) "()"
-    f (ExprGroup exps)  = pprGroup exps
-    f (ExprProcCall pc) = pprProcCall pc
-    f (ExprLit l)       = pprLit l
+    -- Outermost group do not need parens
+    f (ExprGroup exps) = pprGroupNoParens exps
+    f e                = pprExprNoIdentInner e
 
-    pprProcCall (ProcCall name args) =
-        sformat (build%" "%build) name (concatSpace args)
+    pprExprNoIdentInner ExprUnit          = sformat (stext) "()"
+    pprExprNoIdentInner (ExprGroup exps)  = pprGroup exps
+    pprExprNoIdentInner (ExprProcCall pc) = pprProcCall pc
+    pprExprNoIdentInner (ExprLit l)       = pprLit l
 
-    concatSpace = foldMap pprArg
+    pprProcCall (ProcCall name args) = if null args
+        then sformat build name
+        else sformat (build%" "%build) name (T.intercalate " " $ fmap pprArg args)
 
     pprArg (ArgPos pos)     = parensIfProcCall pos
     pprArg (ArgKw name val) = (sformat build name) <> ": " <> (parensIfProcCall val)
 
     -- Nested procCall's should be in parentheses
     parensIfProcCall (ExprProcCall pc) = parens_ (pprProcCall pc)
-    parensIfProcCall anything          = pprExprNoIdent anything
+    parensIfProcCall anything          = pprExprNoIdentInner anything
+
+    pprGroupNoParens :: AtLeastTwo (Expr Name) -> Text
+    pprGroupNoParens = (T.intercalate "; ") . (fmap pprExprNoIdentInner) . toList_
 
     pprGroup :: AtLeastTwo (Expr Name) -> Text
-    pprGroup (AtLeastTwo x y zs) = case nonEmpty zs of
-        Nothing   -> parens_ (pprTwo x y)
-        (Just es) -> parens_ ((pprTwo x y) <> pprNonEmpty es)
-
-    pprTwo :: (Expr Name) -> (Expr Name) -> Text
-    pprTwo e1 e2 = (pprExprNoIdent e1) <> "; " <> (pprExprNoIdent e2)
-
-    pprNonEmpty :: NonEmpty (Expr Name) -> Text
-    pprNonEmpty (e:|es) = case nonEmpty es of
-        Nothing    -> pprExprNoIdent e
-        (Just es_) -> (pprExprNoIdent e) <> "; " <> pprNonEmpty es_
+    pprGroup = parens_ . pprGroupNoParens
 
     parens_ :: Text -> Text
     parens_ t = sformat ("("%stext%")") t
@@ -97,22 +94,30 @@ pprValue mWidth = pprExpr mWidth . valueToExpr
 ppExpr :: Expr Name -> Doc
 ppExpr = f
   where
-    f ExprUnit          = text "()"
-    f (ExprGroup exps)  = ppGroup exps
-    f (ExprProcCall pc) = ppProcCall 2 pc
-    f (ExprLit l)       = text (pprLit l)
+    -- Outermost group do not need parens
+    f (ExprGroup exps) = ppGroupNoParens exps
+    f e                = ppExprInner e
+
+    ppExprInner ExprUnit          = text "()"
+    ppExprInner (ExprGroup exps)  = ppGroup exps
+    ppExprInner (ExprProcCall pc) = ppProcCall 1 pc
+    ppExprInner (ExprLit l)       = text (pprLit l)
 
     ppGroup :: AtLeastTwo (Expr Name) -> Doc
-    ppGroup expsALT =
-        PP.parens $ PP.vsep (PP.punctuate (PP.char ';') (fmap ppExpr (toList_ expsALT)))
+    ppGroup = PP.parens . ppGroupNoParens
+
+    ppGroupNoParens :: AtLeastTwo (Expr Name) -> Doc
+    ppGroupNoParens expsALT =
+        PP.vsep (PP.punctuate (PP.char ';') (fmap ppExprInner (toList_ expsALT)))
 
     ppProcCall :: Indent -> (ProcCall Name (Expr Name)) -> Doc
     ppProcCall i (ProcCall name args) =
         let
             nameDoc = nameToDoc name
             argsDoc = PP.indent i (PP.vsep (fmap (ppArg i) args))
-        in
-            nameDoc PP.<$> argsDoc
+        in if null args
+            then nameDoc
+            else nameDoc PP.<$> argsDoc
 
     ppArg :: Indent -> Arg (Expr Name) -> Doc
     ppArg i (ArgPos pos) = parensIfProcCall i pos
@@ -121,7 +126,7 @@ ppExpr = f
 
     parensIfProcCall :: Indent -> Expr Name -> Doc
     parensIfProcCall i (ExprProcCall pc) = PP.parens (ppProcCall (i + 1) pc)
-    parensIfProcCall _ anything          = ppExpr anything
+    parensIfProcCall _ anything          = ppExprInner anything
 
 valueToExpr :: Lang.Value -> Expr Name
 valueToExpr = \case
