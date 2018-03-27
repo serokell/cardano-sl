@@ -25,7 +25,7 @@ module Pos.Core.Update.Types
        , UpAttributes
        , UpdateData (..)
        , UpdateProposalToSign (..)
-       , SystemTag (getSystemTag)
+       , SystemTag (..)
        , mkSystemTag
        , systemTagMaxLength
 
