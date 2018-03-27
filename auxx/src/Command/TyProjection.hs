@@ -37,10 +37,10 @@ module Command.TyProjection
 import           Universum
 
 import qualified Data.ByteString.Char8 as BS (pack)
-import           Data.Scientific (Scientific, floatingOrInteger, toBoundedInteger, toRealFloat)
-import           Data.Time.Units (TimeUnit, convertUnit)
+import           Data.Scientific (Scientific, floatingOrInteger, toBoundedInteger,
+                                  toBoundedRealFloat, toRealFloat)
+import           Data.Time.Units (Microsecond, TimeUnit, convertUnit, fromMicroseconds)
 import           Serokell.Data.Memory.Units (Byte, fromBytes)
-import           Serokell.Util (sec)
 
 import           Pos.Core (AddrStakeDistribution (..), Address, BlockVersion, Coin, CoinPortion,
                            EpochIndex, ScriptVersion, SoftwareVersion, StakeholderId, mkCoin,
@@ -109,7 +109,14 @@ sciToInteger :: Scientific -> Maybe Integer
 sciToInteger = either (const Nothing) Just . floatingOrInteger @Double @Integer
 
 tySecond :: TimeUnit a => TyProjection a
-tySecond = convertUnit . sec <$> TyProjection "Second" (toBoundedInteger <=< preview _ValueNumber)
+tySecond = secToTimeUnit <$> TyProjection "Second" (toDouble <=< preview _ValueNumber)
+  where
+    toDouble :: Scientific -> Maybe Double
+    toDouble = rightToMaybe . toBoundedRealFloat
+
+    -- Using microseconds here because that's how time-units stores times internally.
+    secToTimeUnit :: TimeUnit a => Double -> a
+    secToTimeUnit = convertUnit @Microsecond . fromMicroseconds . round . (* 1e6)
 
 tyCoeff :: TyProjection Coeff
 tyCoeff = Coeff . realToFrac <$> TyProjection "Coeff" (preview _ValueNumber)
