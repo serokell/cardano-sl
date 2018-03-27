@@ -29,8 +29,8 @@ import           Pos.Core.Common (AddrStakeDistribution (..), Coeff (..), Coin (
                                   CoinPortion (..), TxFeePolicy (..), TxSizeLinear (..),
                                   coinPortionDenominator)
 import           Pos.Core.Txp (TxOut (..))
-import           Pos.Core.Update (BlockVersionData, BlockVersionModifier (..), SoftforkRule (..),
-                                  SystemTag (..))
+import           Pos.Core.Update (BlockVersionData (..), BlockVersionModifier (..),
+                                  SoftforkRule (..), SystemTag (..))
 import           Pos.Crypto (AHash (..), fullPublicKeyF, hashHexF)
 
 pprLit :: Lit -> Text
@@ -185,6 +185,9 @@ valueToExpr = \case
                 , ArgPos (ExprLit $ LitString $ BS.unpack bs )
                 ]
 
+    millisecToSec :: Millisecond -> Scientific
+    millisecToSec = (/ 1e3) . fromIntegral
+
     bvmToArgs :: BlockVersionModifier -> [Arg (Expr Name)]
     bvmToArgs BlockVersionModifier {..} = catMaybes
         [ ArgKw "script-version"      . ExprLit . LitNumber . fromIntegral <$> bvmScriptVersion
@@ -202,12 +205,24 @@ valueToExpr = \case
         , ArgKw "tx-fee-policy"       . ExprProcCall . tfpToProcCall <$> bvmTxFeePolicy
         , ArgKw "unlock-stake-epoch"  . ExprLit . LitNumber . fromIntegral <$> bvmUnlockStakeEpoch
         ]
-      where
-        millisecToSec :: Millisecond -> Scientific
-        millisecToSec = (/ 1e3) . fromIntegral
 
     bvdToArgs :: BlockVersionData -> [Arg (Expr Name)]
-    bvdToArgs bvd = [ArgPos (ExprLit $ LitString $ show bvd)]
+    bvdToArgs BlockVersionData {..} =
+        [ ArgPos $ ExprLit $ LitNumber $ fromIntegral bvdScriptVersion
+        , ArgPos $ ExprLit $ LitNumber $ millisecToSec bvdSlotDuration
+        , ArgPos $ ExprLit $ LitNumber $ fromIntegral bvdMaxBlockSize
+        , ArgPos $ ExprLit $ LitNumber $ fromIntegral bvdMaxHeaderSize
+        , ArgPos $ ExprLit $ LitNumber $ fromIntegral bvdMaxTxSize
+        , ArgPos $ ExprLit $ LitNumber $ fromIntegral bvdMaxProposalSize
+        , ArgPos $ ExprLit $ LitNumber $ coinPortionToScientific bvdMpcThd
+        , ArgPos $ ExprLit $ LitNumber $ coinPortionToScientific bvdHeavyDelThd
+        , ArgPos $ ExprLit $ LitNumber $ coinPortionToScientific bvdUpdateVoteThd
+        , ArgPos $ ExprLit $ LitNumber $ coinPortionToScientific bvdUpdateProposalThd
+        , ArgPos $ ExprLit $ LitNumber $ fromIntegral bvdUpdateImplicit
+        , ArgPos $ ExprProcCall $ ProcCall "softfork-rule" $ srToArgs bvdSoftforkRule
+        , ArgPos $ ExprProcCall $ tfpToProcCall bvdTxFeePolicy
+        , ArgPos $ ExprLit $ LitNumber $ fromIntegral bvdUnlockStakeEpoch
+        ]
 
     pusToArgs :: Lang.ProposeUpdateSystem -> [Arg (Expr Name)]
     pusToArgs Lang.ProposeUpdateSystem {..} = catMaybes

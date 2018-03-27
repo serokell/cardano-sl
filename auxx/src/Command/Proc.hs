@@ -14,7 +14,6 @@ import qualified Data.Map as Map
 import           Formatting (build, int, sformat, stext, (%))
 import           System.Wlog (CanLog, HasLoggerName, logError, logInfo, logWarning)
 import qualified Text.JSON.Canonical as CanonicalJSON
-import           Text.Read (read)
 
 import           Pos.Client.KeyStorage (addSecretKey, getSecretKeysPlain)
 import           Pos.Client.Txp.Balances (getBalance)
@@ -24,12 +23,12 @@ import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..), Tx
                                   TxSizeLinear (..), makeAddress)
 import           Pos.Core.Configuration (genesisSecretKeys)
 import           Pos.Core.Txp (TxOut (..))
-import           Pos.Core.Update (SoftforkRule (..))
+import           Pos.Core.Update (BlockVersionData (..), BlockVersionModifier (..),
+                                  SoftforkRule (..))
 import           Pos.Crypto (PublicKey, emptyPassphrase, encToPublic, fullPublicKeyF, hashHexF,
                              noPassEncrypt, safeCreatePsk, unsafeCheatingHashCoerce, withSafeSigner)
 import           Pos.DB.Class (MonadGState (..))
 import           Pos.Diffusion.Types (Diffusion (..))
-import           Pos.Update (BlockVersionData, BlockVersionModifier (..))
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.UserSecret (WalletUserSecret (..), readUserSecret, usKeys, usPrimKey,
                                       usWallet, userSecret)
@@ -45,8 +44,8 @@ import           Command.TyProjection (tyAddrDistrPart, tyAddrStakeDistr, tyAddr
                                        tyEither, tyEpochIndex, tyFilePath, tyHash, tyInt,
                                        tyProposeUpdateSystem, tyPublicKey, tyScriptVersion,
                                        tySecond, tySoftforkRule, tySoftwareVersion, tyStakeholderId,
-                                       tyString, tySystemTag, tyTxFeePolicy, tyTxOut, tyValue,
-                                       tyWord, tyWord32, tyWord64, tyWord8)
+                                       tySystemTag, tyTxFeePolicy, tyTxOut, tyValue, tyWord,
+                                       tyWord32, tyWord64, tyWord8)
 import qualified Command.Update as Update
 import           Lang.Argument (getArg, getArgMany, getArgOpt, getArgSome, typeDirectedKwAnn)
 import           Lang.Command (CommandProc (..), UnavailableCommand (..))
@@ -342,14 +341,26 @@ createCommandProcs hasMonadIO hasAuxxMode printAction mDiffusion = rights . fix 
     , cpHelp = "construct a part of the update proposal for binary update"
     },
 
-    -- FIXME
     let name = "bvd-read" in
     return CommandProc
     { cpName = name
     , cpArgumentPrepare = identity
     , cpArgumentConsumer = do
-        bvdStr <- getArg tyString "value"
-        pure ((read bvdStr) :: BlockVersionData)
+        bvdScriptVersion     <- getArg tyScriptVersion "script-version"
+        bvdSlotDuration      <- getArg tySecond "slot-duration"
+        bvdMaxBlockSize      <- getArg tyByte "max-block-size"
+        bvdMaxHeaderSize     <- getArg tyByte "max-header-size"
+        bvdMaxTxSize         <- getArg tyByte "max-tx-size"
+        bvdMaxProposalSize   <- getArg tyByte "max-proposal-size"
+        bvdMpcThd            <- getArg tyCoinPortion "mpc-thd"
+        bvdHeavyDelThd       <- getArg tyCoinPortion "heavy-del-thd"
+        bvdUpdateVoteThd     <- getArg tyCoinPortion "update-vote-thd"
+        bvdUpdateProposalThd <- getArg tyCoinPortion "update-proposal-thd"
+        bvdUpdateImplicit    <- getArg tyWord64 "update-implicit"
+        bvdSoftforkRule      <- getArg tySoftforkRule "softfork-rule"
+        bvdTxFeePolicy       <- getArg tyTxFeePolicy "tx-fee-policy"
+        bvdUnlockStakeEpoch  <- getArg tyEpochIndex "unlock-stake-epoch"
+        pure BlockVersionData {..}
     , cpExec = \bvd -> do
         return $ ValueBlockVersionData bvd
     , cpHelp = "Construct a ValueBlockVersionData"
