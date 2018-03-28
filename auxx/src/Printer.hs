@@ -113,7 +113,7 @@ ppExpr = f
     ppProcCall :: Indent -> (ProcCall Name (Expr Name)) -> Doc
     ppProcCall i (ProcCall name args) =
         let
-            nameDoc = nameToDoc name
+            nameDoc = (PP.blue . nameToDoc) name
             argsDoc = PP.indent i (PP.vsep (fmap (ppArg i) args))
         in if null args
             then nameDoc
