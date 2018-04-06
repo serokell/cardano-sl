@@ -27,8 +27,6 @@ packages:
 - lib
 - generator
 - client
-- auxx
-- explorer
 - node
 - tools
 - wallet
@@ -179,7 +177,5 @@ ghc-options:
   cardano-sl-client:     -Werror
   cardano-sl-generator:  -Werror
   cardano-sl-tools:      -Werror
-  cardano-sl-auxx:       -Werror
   cardano-sl-wallet:     -Werror
-  cardano-sl-explorer:   -Werror
   cardano-sl-node:       -Werror
