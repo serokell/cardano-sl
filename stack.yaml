@@ -60,8 +60,8 @@ packages:
     # We're waiting on next release
     commit: da4247b5b3420120e20451e6a252e2a2ca15b43c
   extra-dep: true
-- location: 
-    git: https://github.com/input-output-hk/cardano-report-server.git 
+- location:
+    git: https://github.com/input-output-hk/cardano-report-server.git
     commit: 81eea7361a75923f9402fcb7840fb36722dbf88e # master 0.4.10
   extra-dep: true
 # These three are needed for cardano-sl-networking
@@ -114,6 +114,11 @@ packages:
     git: https://github.com/input-output-hk/rocksdb-haskell-ng.git
     commit: 49f501a082d745f3b880677220a29cafaa181452
   extra-dep: true
+
+# Fix for EVP_CIPHER_CTX_init under OpenSSL 1.1
+- location:
+    git: https://github.com/serokell/cryptonite-openssl.git
+    commit: 5e91d14b54fbed5ef3fa7751f9e12c996458fdda
 
 nix:
   shell-file: shell.nix
