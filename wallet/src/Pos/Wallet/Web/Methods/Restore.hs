@@ -28,8 +28,8 @@ import           Pos.Crypto (EncryptedSecretKey, PassPhrase, emptyPassphrase, fi
 import           Pos.StateLock (Priority (..), withStateLockNoMetrics)
 import           Pos.Util (maybeThrow)
 import           Pos.Util.UserSecret (UserSecretDecodingError (..), WalletUserSecret (..),
-                                      mkGenesisWalletUserSecret, readUserSecret, usWallet,
-                                      wusAccounts, wusWalletName)
+                                      mkGenesisWalletUserSecret, readUserSecret, wusAccounts,
+                                      wusWalletName)
 import           Pos.Wallet.Web.Account (GenSeed (..), genSaveRootKey, genUniqueAccountId)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccountInit (..), CAccountMeta (..),
                                              CFilePath (..), CId, CWallet (..), CWalletInit (..),
@@ -92,7 +92,7 @@ importWallet passphrase (CFilePath (toString -> fp)) = do
         rewrapToWalletError isDoesNotExistError noFile $
         rewrapToWalletError (\UserSecretDecodingError{} -> True) decodeFailed $
         readUserSecret fp
-    wSecret <- maybeThrow noWalletSecret (secret ^. usWallet)
+    wSecret <- maybeThrow noWalletSecret (error "not implemented" secret)
     importWalletDo passphrase wSecret
   where
     noWalletSecret = RequestError "This key doesn't contain HD wallet info"

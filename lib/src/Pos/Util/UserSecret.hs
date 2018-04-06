@@ -8,19 +8,20 @@
 #endif
 
 module Pos.Util.UserSecret
-       ( WalletUserSecret (..)
-       , wusRootKey
-       , wusWalletName
-       , wusAccounts
-       , wusAddrs
-       , accountGenesisIndex
-       , wAddressGenesisIndex
-       , mkGenesisWalletUserSecret
+       (
+         AccountData (..)
+       , adName
+       , adPath
+       , adAddresses
+       , WalletData (..)
+       , wdRootKey
+       , wdName
+       , wdAccounts
 
        , UserSecret
        , usKeys
        , usVss
-       , usWallet
+       , usWallets
        , usPrimKey
        , HasUserSecret(..)
        , getUSPath
@@ -34,6 +35,24 @@ module Pos.Util.UserSecret
 
        , UserSecretDecodingError (..)
        , ensureModeIs600
+
+       -- * Legacy
+       , WalletUserSecret (..)
+       , wusRootKey
+       , wusWalletName
+       , wusAccounts
+       , wusAddrs
+       , accountGenesisIndex
+       , wAddressGenesisIndex
+       , mkGenesisWalletUserSecret
+
+       , UserSecret0
+       , usKeys0
+       , usVss0
+       , usWallet0
+       , usPrimKey0
+       , usLock0
+       , usPath0
        ) where
 
 import           Universum
@@ -43,7 +62,7 @@ import           Control.Lens (makeLenses, to)
 import qualified Data.ByteString as BS
 import           Data.Default (Default (..))
 import qualified Data.Text.Buildable
-import           Formatting (Format, bprint, build, formatToString, later, (%))
+import           Formatting (Format, bprint, build, formatToString, int, later, stext, (%))
 import qualified Prelude
 import           Serokell.Util.Text (listJson)
 import           System.Directory (doesFileExist)
@@ -71,43 +90,60 @@ import           System.Wlog (logWarning)
 -- Because of the Formatting import
 {-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
 
--- | Describes HD wallets keyfile content
-data WalletUserSecret = WalletUserSecret
-    { _wusRootKey    :: EncryptedSecretKey  -- ^ root key of wallet set
-    , _wusWalletName :: Text                -- ^ name of wallet
-    , _wusAccounts   :: [(Word32, Text)]    -- ^ accounts coordinates and names
-    , _wusAddrs      :: [(Word32, Word32)]  -- ^ addresses coordinates
+----------------------------------------------------------------------------
+-- New WalletData and AccountData types
+----------------------------------------------------------------------------
+
+data AccountData = AccountData
+    { _adName      :: !Text
+    , _adPath      :: !Word32 -- for accounts path always contains 1 number
+    , _adAddresses :: !(Vector (Word32, Address))
+    -- ^ First value is path, second value is address which can be
+    -- computed from root key and path, but it would require a
+    -- passphrase.
     }
 
-makeLenses ''WalletUserSecret
+makeLenses ''AccountData
 
-instance Buildable WalletUserSecret where
-    build WalletUserSecret{..} =
-        bprint ("{ root = "%addressF%", set name = "%build%
-                ", wallets = "%pairsF%", accounts = "%pairsF%" }")
-        (makeRootPubKeyAddress $ encToPublic _wusRootKey)
-        _wusWalletName
-        _wusAccounts
-        _wusAddrs
-      where
-        pairsF :: (Buildable a, Buildable b) => Format r ([(a, b)] -> r)
-        pairsF = later $ mconcat . map (uncurry $ bprint ("("%build%", "%build%")"))
-
-deriveSimpleBi ''WalletUserSecret [
-    Cons 'WalletUserSecret [
-        Field [| _wusRootKey    :: EncryptedSecretKey |],
-        Field [| _wusWalletName :: Text               |],
-        Field [| _wusAccounts   :: [(Word32, Text)]   |],
-        Field [| _wusAddrs      :: [(Word32, Word32)] |]
+deriveSimpleBi ''AccountData [
+    Cons 'AccountData [
+        Field [| _adName      :: Text                     |],
+        Field [| _adPath      :: Word32                   |],
+        Field [| _adAddresses :: Vector (Word32, Address) |]
     ]]
 
-mkGenesisWalletUserSecret :: EncryptedSecretKey -> WalletUserSecret
-mkGenesisWalletUserSecret _wusRootKey = do
-    let _wusWalletName = "Genesis wallet"
-        _wusAccounts   = [(accountGenesisIndex, "Genesis account")]
-        _wusAddrs      = [(accountGenesisIndex, wAddressGenesisIndex)]
-    WalletUserSecret{..}
+instance Buildable AccountData where
+    build AccountData {..} =
+        bprint ("{ name = "%stext%", path = ["%int%"]"%
+                ", addresses = "%pairsF%" }")
+        _adName _adPath _adAddresses
+      where
+        pairsF :: (Buildable a, Buildable b) => Format r (Vector (a, b) -> r)
+        pairsF = later $ fold . map (uncurry $ bprint ("("%build%", "%build%")"))
 
+data WalletData = WalletData
+    { _wdRootKey  :: !EncryptedSecretKey
+    , _wdName     :: !Text
+    , _wdAccounts :: !(Vector AccountData)
+    }
+
+makeLenses ''WalletData
+
+deriveSimpleBi ''WalletData [
+    Cons 'WalletData [
+        Field [| _wdRootKey    :: EncryptedSecretKey |],
+        Field [| _wdName       :: Text               |],
+        Field [| _wdAccounts   :: Vector AccountData |]
+    ]]
+
+instance Buildable WalletData where
+    build WalletData {..} =
+        bprint ("{ name = "%stext%", accounts = "%listJson%" }")
+        _wdName _wdAccounts
+
+----------------------------------------------------------------------------
+-- UserSecret
+----------------------------------------------------------------------------
 
 -- | User secret data. Includes secret keys only for now (not
 -- including auxiliary @_usPath@).
@@ -115,7 +151,7 @@ data UserSecret = UserSecret
     { _usKeys    :: [EncryptedSecretKey]
     , _usPrimKey :: Maybe SecretKey
     , _usVss     :: Maybe VssKeyPair
-    , _usWallet  :: Maybe WalletUserSecret
+    , _usWallets :: [WalletData]
     , _usPath    :: FilePath
     , _usLock    :: Maybe FileLock
     }
@@ -131,11 +167,11 @@ instance Bi Address => Show UserSecret where
     show UserSecret {..} =
         formatToString
             ("UserSecret { _usKeys = "%listJson%", _usVss = "%build%
-             ", _usPath = "%build%", _usWallet = "%build%"}")
+             ", _usPath = "%build%", _usWallets = "%listJson%"}")
             _usKeys
             _usVss
             _usPath
-            _usWallet
+            _usWallets
 
 newtype UserSecretDecodingError = UserSecretDecodingError Text
     deriving (Show)
@@ -165,7 +201,7 @@ simpleUserSecret :: SecretKey -> FilePath -> UserSecret
 simpleUserSecret sk fp = def & usPrimKey .~ Just sk & usPath .~ fp
 
 instance Default UserSecret where
-    def = UserSecret [] Nothing Nothing Nothing "" Nothing
+    def = UserSecret [] Nothing Nothing [] "" Nothing
 
 -- | It's not network/system-related, so instance shouldn't be under
 -- @Pos.Binary.*@.
@@ -173,18 +209,18 @@ instance Bi UserSecret where
   encode us = encodeListLen 4 <> encode (_usVss us) <>
                                       encode (_usPrimKey us) <>
                                       encode (_usKeys us) <>
-                                      encode (_usWallet us)
+                                      encode (_usWallets us)
   decode = do
     enforceSize "UserSecret" 4
     vss  <- decode
     pkey <- decode
     keys <- decode
-    wallet <- decode
+    wallets <- decode
     return $ def
         & usVss .~ vss
         & usPrimKey .~ pkey
         & usKeys .~ keys
-        & usWallet .~ wallet
+        & usWallets .~ wallets
 
 #ifdef POSIX
 -- | Constant that defines file mode 600 (readable & writable only by owner).
@@ -305,3 +341,76 @@ writeRaw u = do
 -- | Helper for taking shared lock on file
 takeReadLock :: MonadIO m => FilePath -> IO a -> m a
 takeReadLock path = liftIO . withFileLock (lockFilePath path) Shared . const
+
+----------------------------------------------------------------------------
+-- Legacy
+----------------------------------------------------------------------------
+
+-- | Describes HD wallets keyfile content
+data WalletUserSecret = WalletUserSecret
+    { _wusRootKey    :: EncryptedSecretKey  -- ^ root key of wallet set
+    , _wusWalletName :: Text                -- ^ name of wallet
+    , _wusAccounts   :: [(Word32, Text)]    -- ^ accounts coordinates and names
+    , _wusAddrs      :: [(Word32, Word32)]  -- ^ addresses coordinates
+    }
+
+makeLenses ''WalletUserSecret
+
+instance Buildable WalletUserSecret where
+    build WalletUserSecret{..} =
+        bprint ("{ root = "%addressF%", set name = "%build%
+                ", wallets = "%pairsF%", accounts = "%pairsF%" }")
+        (makeRootPubKeyAddress $ encToPublic _wusRootKey)
+        _wusWalletName
+        _wusAccounts
+        _wusAddrs
+      where
+        pairsF :: (Buildable a, Buildable b) => Format r ([(a, b)] -> r)
+        pairsF = later $ mconcat . map (uncurry $ bprint ("("%build%", "%build%")"))
+
+deriveSimpleBi ''WalletUserSecret [
+    Cons 'WalletUserSecret [
+        Field [| _wusRootKey    :: EncryptedSecretKey |],
+        Field [| _wusWalletName :: Text               |],
+        Field [| _wusAccounts   :: [(Word32, Text)]   |],
+        Field [| _wusAddrs      :: [(Word32, Word32)] |]
+    ]]
+
+mkGenesisWalletUserSecret :: EncryptedSecretKey -> WalletUserSecret
+mkGenesisWalletUserSecret _wusRootKey = do
+    let _wusWalletName = "Genesis wallet"
+        _wusAccounts   = [(accountGenesisIndex, "Genesis account")]
+        _wusAddrs      = [(accountGenesisIndex, wAddressGenesisIndex)]
+    WalletUserSecret{..}
+
+-- | Legacy 'UserSecret' type.
+data UserSecret0 = UserSecret0
+    { _usKeys0    :: [EncryptedSecretKey]
+    , _usPrimKey0 :: Maybe SecretKey
+    , _usVss0     :: Maybe VssKeyPair
+    , _usWallet0  :: Maybe WalletUserSecret
+    , _usPath0    :: FilePath
+    , _usLock0    :: Maybe FileLock
+    }
+
+makeLenses ''UserSecret0
+
+instance Default UserSecret0 where
+    def = UserSecret0 [] Nothing Nothing Nothing "" Nothing
+
+instance Bi UserSecret0 where
+  encode us = encodeListLen 4 <> encode (_usVss0 us) <>
+                                      encode (_usPrimKey0 us) <>
+                                      encode (_usKeys0 us) <>
+                                      encode (_usWallet0 us)
+  decode = do
+    enforceSize "UserSecret" 4
+    vss  <- decode
+    pkey <- decode
+    keys <- decode
+    wallet <- decode
+    return $ def
+        & usVss0 .~ vss
+        & usPrimKey0 .~ pkey
+        & usKeys0 .~ keys
+        & usWallet0 .~ wallet
