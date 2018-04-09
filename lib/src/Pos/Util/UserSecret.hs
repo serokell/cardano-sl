@@ -79,6 +79,7 @@ import           Pos.Binary.Crypto ()
 import           Pos.Core (Address, accountGenesisIndex, addressF, makeRootPubKeyAddress,
                            wAddressGenesisIndex)
 import           Pos.Crypto (EncryptedSecretKey, SecretKey, VssKeyPair, encToPublic)
+import           Pos.Util (listLens)
 
 #ifdef POSIX
 import           Formatting (oct, sformat)
@@ -148,8 +149,7 @@ instance Buildable WalletData where
 -- | User secret data. Includes secret keys only for now (not
 -- including auxiliary @_usPath@).
 data UserSecret = UserSecret
-    { _usKeys    :: [EncryptedSecretKey]
-    , _usPrimKey :: Maybe SecretKey
+    { _usPrimKey :: Maybe SecretKey
     , _usVss     :: Maybe VssKeyPair
     , _usWallets :: [WalletData]
     , _usPath    :: FilePath
@@ -157,6 +157,9 @@ data UserSecret = UserSecret
     }
 
 makeLenses ''UserSecret
+
+usKeys :: Lens' UserSecret [EncryptedSecretKey]
+usKeys = listLens usWallets wdRootKey
 
 class HasUserSecret ctx where
     -- if you're going to mock this TVar, look how it's done for peer state.
@@ -166,9 +169,8 @@ class HasUserSecret ctx where
 instance Bi Address => Show UserSecret where
     show UserSecret {..} =
         formatToString
-            ("UserSecret { _usKeys = "%listJson%", _usVss = "%build%
+            ("UserSecret { _usVss = "%build%
              ", _usPath = "%build%", _usWallets = "%listJson%"}")
-            _usKeys
             _usVss
             _usPath
             _usWallets
@@ -201,25 +203,22 @@ simpleUserSecret :: SecretKey -> FilePath -> UserSecret
 simpleUserSecret sk fp = def & usPrimKey .~ Just sk & usPath .~ fp
 
 instance Default UserSecret where
-    def = UserSecret [] Nothing Nothing [] "" Nothing
+    def = UserSecret Nothing Nothing [] "" Nothing
 
 -- | It's not network/system-related, so instance shouldn't be under
 -- @Pos.Binary.*@.
 instance Bi UserSecret where
   encode us = encodeListLen 4 <> encode (_usVss us) <>
                                       encode (_usPrimKey us) <>
-                                      encode (_usKeys us) <>
                                       encode (_usWallets us)
   decode = do
     enforceSize "UserSecret" 4
     vss  <- decode
     pkey <- decode
-    keys <- decode
     wallets <- decode
     return $ def
         & usVss .~ vss
         & usPrimKey .~ pkey
-        & usKeys .~ keys
         & usWallets .~ wallets
 
 #ifdef POSIX
