@@ -142,7 +142,7 @@ library
                      , cborg
                      , containers
                      , cryptonite
-                     , cryptonite-openssl >= 0.5
+                     , cryptonite-openssl >= 0.7
                      , data-default
                      , deepseq
                      , deriving-compat
