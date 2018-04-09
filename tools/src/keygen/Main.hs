@@ -25,7 +25,7 @@ import           Pos.Crypto (EncryptedSecretKey (..), SecretKey (..), VssKeyPair
                              hashHexF, noPassEncrypt, redeemPkB64F, toPublic, toVssPublicKey)
 import           Pos.Launcher (HasConfigurations, withConfigurations)
 import           Pos.Util.UserSecret (readUserSecret, takeUserSecret, usKeys, usPrimKey, usVss,
-                                      usWallet, writeUserSecretRelease, wusRootKey)
+                                      writeUserSecretRelease)
 
 import           Dump (dumpFakeAvvmSeed, dumpGeneratedGenesisData, dumpRichSecrets)
 import           KeygenOptions (DumpAvvmSeedsOptions (..), GenKeysOptions (..), KeygenCommand (..),
@@ -69,9 +69,6 @@ readKey path = do
     logInfo $ maybe "No Primary key"
                     (("Primary: " <>) . showKeyWithAddressHash) $
                     view usPrimKey us
-    logInfo $ maybe "No wallet set"
-                    (("Wallet set: " <>) . showKeyWithAddressHash . decryptESK . view wusRootKey) $
-                    view usWallet us
     logInfo $ "Keys: " <> (T.concat $ L.intersperse "\n" $
                            map (showKeyWithAddressHash . decryptESK) $
                            view usKeys us)

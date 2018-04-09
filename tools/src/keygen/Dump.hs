@@ -8,21 +8,18 @@ module Dump
 
 import           Universum
 
-import           Control.Lens ((?~))
 import qualified Data.Text as T
 import           Serokell.Util (enumerate)
 import qualified Serokell.Util.Base64 as B64
 import           System.Directory (createDirectoryIfMissing)
 import           System.FilePath ((</>))
-import           System.Wlog (WithLogger, logInfo)
+import           System.Wlog (WithLogger, logError, logInfo)
 
 import           Pos.Core.Configuration (HasGeneratedSecrets, generatedSecrets)
-import           Pos.Core.Genesis (GeneratedSecrets (..), PoorSecret (..), RichSecrets (..),
-                                   poorSecretToEncKey)
+import           Pos.Core.Genesis (GeneratedSecrets (..), PoorSecret (..), RichSecrets (..))
 import           Pos.Crypto (SecretKey)
-import           Pos.Util.UserSecret (UserSecret, initializeUserSecret, mkGenesisWalletUserSecret,
-                                      takeUserSecret, usKeys, usPrimKey, usVss, usWallet,
-                                      writeUserSecretRelease)
+import           Pos.Util.UserSecret (UserSecret, initializeUserSecret, takeUserSecret, usPrimKey,
+                                      usVss, writeUserSecretRelease)
 
 ----------------------------------------------------------------------------
 -- Dump individual secrets
@@ -51,11 +48,12 @@ dumpPoorSecret
     => FilePath
     -> PoorSecret
     -> m ()
-dumpPoorSecret fp poorSec = let hdwSk = poorSecretToEncKey poorSec in
-    dumpUserSecret fp $
-    foldl' (.) identity [ usKeys %~ (hdwSk :)
-                        , usWallet ?~ mkGenesisWalletUserSecret hdwSk
-                        ]
+dumpPoorSecret _fp _poorSec = logError "not implemented"
+    -- let hdwSk = poorSecretToEncKey poorSec in
+    -- dumpUserSecret fp $
+    -- foldl' (.) identity [ usKeys %~ (hdwSk :)
+    --                     , usWallet ?~ mkGenesisWalletUserSecret hdwSk
+    --                     ]
 
 dumpFakeAvvmSeed :: MonadIO m => FilePath -> ByteString -> m ()
 dumpFakeAvvmSeed fp seed = writeFile fp (B64.encode seed)

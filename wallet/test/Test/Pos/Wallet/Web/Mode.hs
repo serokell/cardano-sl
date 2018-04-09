@@ -88,7 +88,7 @@ import           Pos.Wallet.Web.Networking (MonadWalletSendActions (..))
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo (..), MonadUpdates (..),
                                         WalletMempoolExt)
 import           Pos.Wallet.Web.ClientTypes (AccountId)
-import           Pos.Wallet.Web.Methods (AddrCIdHashes(..))
+import           Pos.Wallet.Web.Methods (AddrCIdHashes (..))
 import           Pos.Wallet.Web.Mode (getBalanceDefault, getNewAddressWebWallet, getOwnUtxosDefault)
 import           Pos.Wallet.Web.State (MonadWalletDB, WalletState, openMemState)
 import           Pos.Wallet.Web.Tracking.BListener (onApplyBlocksWebWallet,
@@ -383,7 +383,7 @@ instance MonadKeysRead WalletTestMode where
     getSecret = getSecretDefault
 
 instance MonadKeys WalletTestMode where
-    modifySecret = modifySecretPureDefault
+    modifySecretNew = modifySecretPureDefault
 
 instance (HasCompileInfo, HasConfigurations) => MonadTxHistory WalletTestMode where
     getBlockHistory = getBlockHistoryDefault
