@@ -324,7 +324,7 @@ instance MonadKeysRead WalletWebMode where
     getSecret = getSecretDefault
 
 instance MonadKeys WalletWebMode where
-    modifySecret = modifySecretDefault
+    modifySecretNew = modifySecretDefault
 
 instance HasConfigurations => MonadWalletSendActions WalletWebMode where
     sendTxToNetwork tx = do
