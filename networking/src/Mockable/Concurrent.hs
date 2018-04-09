@@ -18,6 +18,7 @@ module Mockable.Concurrent (
 
   , Delay(..)
   , delay
+  , threadDelay
   , sleepForever
 
   , RunInUnboundThread(..)
@@ -44,9 +45,11 @@ module Mockable.Concurrent (
 
   ) where
 
+import qualified Control.Concurrent as Conc
 import           Control.Exception (AsyncException (..))
 import           Control.Exception.Safe (Exception)
-import           Data.Time.Units (TimeUnit)
+import           Control.Monad.IO.Class (MonadIO (liftIO))
+import           Data.Time.Units (TimeUnit (toMicroseconds))
 import           Mockable.Class
 
 type family ThreadId (m :: * -> *) :: *
@@ -221,3 +224,7 @@ forConcurrently
     -> (s -> m t)
     -> m (f t)
 forConcurrently = flip mapConcurrently
+
+-- Temporary workaround for building with LTS-10.8
+threadDelay :: (MonadIO m, TimeUnit unit) => unit -> m ()
+threadDelay = liftIO . Conc.threadDelay . fromIntegral . toMicroseconds

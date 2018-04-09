@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -O2 #-}
+{-# LANGUAGE CPP                        #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
@@ -20,7 +21,6 @@ import           Control.Monad.IO.Class (MonadIO)
 import qualified Crypto.Random as Rand
 import           Data.Time.Units (Hour)
 import qualified GHC.IO as GHC
-import           Serokell.Util.Concurrent as Serokell
 import qualified System.Metrics.Counter as EKG.Counter
 import qualified System.Metrics.Distribution as EKG.Distribution
 import qualified System.Metrics.Gauge as EKG.Gauge
@@ -31,7 +31,7 @@ import           Control.Monad.Trans.Control (MonadBaseControl (..))
 import           Mockable.Channel (Channel (..), ChannelT)
 import           Mockable.Class (Mockable (..))
 import           Mockable.Concurrent (Async (..), Concurrently (..), Delay (..), Fork (..), Promise,
-                                      RunInUnboundThread (..), ThreadId)
+                                      RunInUnboundThread (..), ThreadId, threadDelay)
 import           Mockable.CurrentTime (CurrentTime (..), realTime)
 import qualified Mockable.Metrics as Metrics
 import           Mockable.SharedAtomic (SharedAtomic (..), SharedAtomicT)
@@ -60,8 +60,8 @@ instance Mockable Fork Production where
 instance Mockable Delay Production where
     {-# INLINABLE liftMockable #-}
     {-# SPECIALIZE INLINE liftMockable :: Delay Production t -> Production t #-}
-    liftMockable (Delay time) = Production $ Serokell.threadDelay time
-    liftMockable SleepForever = Production $ forever $ Serokell.threadDelay (1 :: Hour)
+    liftMockable (Delay time) = Production $ threadDelay time
+    liftMockable SleepForever = Production $ forever $ threadDelay (1 :: Hour)
 
 instance Mockable RunInUnboundThread Production where
     {-# INLINABLE liftMockable #-}
