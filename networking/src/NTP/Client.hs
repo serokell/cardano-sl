@@ -34,13 +34,13 @@ import           Data.Typeable (Typeable)
 import           Formatting (sformat, shown, (%))
 import           Network.Socket (AddrInfo, SockAddr (..), Socket, addrAddress, addrFamily, close)
 import           Network.Socket.ByteString (recvFrom, sendTo)
-import           Serokell.Util.Concurrent (modifyTVarS, threadDelay)
+import           Serokell.Util.Concurrent (modifyTVarS)
 import           System.Wlog (LoggerName, WithLogger, logDebug, logError, logInfo, logWarning,
                               modifyLoggerName)
 
 import           Mockable.Class (Mockable)
 import           Mockable.Concurrent (Async, Concurrently, concurrently, forConcurrently, race,
-                                      withAsync)
+                                      threadDelay, withAsync)
 import           NTP.Packet (NtpPacket (..), evalClockOffset, mkCliNtpPacket, ntpPacketSize)
 import           NTP.Util (createAndBindSock, resolveNtpHost, selectIPv4, selectIPv6,
                            udpLocalAddresses, withSocketsDoLifted)
