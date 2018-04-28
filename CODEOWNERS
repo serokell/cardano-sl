@@ -30,21 +30,21 @@ Delegation/                     @volhovm
 
 Wallet/                         @akegalj @adinapoli-iohk
 
-txp/                            @gromakovsky @pva701 @neongreen
+txp/                            @gromakovsky @pva701
 update/                         @gromakovsky @pva701
 lrc/                            @pva701
-ssc/                            @gromakovsky @neongreen
+ssc/                            @gromakovsky
 
-core/Pos/Binary/                @neongreen
-core/Pos/Crypto/                @neongreen
-core/Pos/Merkle.hs              @neongreen
+core/Pos/Binary/                @pva701
+core/Pos/Crypto/                @pva701
+core/Pos/Merkle.hs              @pva701
 
-core/Pos/Util/Config.hs         @neongreen
-core/Pos/Util/Config/           @neongreen
-lib/src/Pos/CompileConfig/      @neongreen
+core/Pos/Util/Config.hs         @pva701
+core/Pos/Util/Config/           @pva701
+lib/src/Pos/CompileConfig/      @pva701
 
-scripts/build/cardano-sl.sh     @neongreen
-HLint.hs                        @neongreen
+scripts/build/cardano-sl.sh     @pva701
+HLint.hs                        @pva701
 
 lib/test/                       @rockbmb
 lib/test/Test/Pos/Block/Logic/  @gromakovsky
