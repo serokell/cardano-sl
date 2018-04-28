@@ -55,6 +55,8 @@ instance Bi User where
             _ -> cborError "Found invalid tag while getting User"
 -}
 
+{-# LANGUAGE CPP #-}
+
 module Pos.Binary.Class.TH
        ( deriveSimpleBi
        , deriveSimpleBiCxt
@@ -62,7 +64,11 @@ module Pos.Binary.Class.TH
        , Field (Field)
        ) where
 
+#if MIN_VERSION_universum(1, 1, 0)
+import           Universum hiding (Type)
+#else
 import           Universum
+#endif
 
 import qualified Codec.CBOR.Decoding as Cbor
 import qualified Codec.CBOR.Encoding as Cbor
