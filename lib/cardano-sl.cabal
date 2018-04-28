@@ -25,6 +25,9 @@ library
                         Pos.Configuration
                         Pos.Constants
 
+                        -- Crypto
+                        Pos.Crypto.HDDiscovery
+
                         Pos.DB.DB
 
                         -- Diffusion layer
@@ -112,9 +115,6 @@ library
 
                         -- NodeContext
                         Pos.Context.Context
-
-                        -- Crypto
-                        Pos.Crypto.HDDiscovery
 
                         -- GState
                         Pos.GState.Context
