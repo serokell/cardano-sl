@@ -29,7 +29,7 @@ import           Data.Time.Units (toMicroseconds)
 import           Formatting (sformat, shown, (%))
 import           Mockable (Production (..))
 import           Network.QDisc.Fair (fairQDisc)
-import qualified Network.Transport as NT (closeTransport)
+-- import qualified Network.Transport as NT (closeTransport)
 import           Network.Transport.Abstract (Transport, hoistTransport)
 import           Network.Transport.Concrete (concrete)
 import qualified Network.Transport.TCP as TCP
@@ -444,7 +444,14 @@ createTransportTCP addrInfo = do
         Left e -> do
             logError $ sformat ("Error creating TCP transport: " % shown) e
             throwM e
-        Right transport -> return (concrete transport, liftIO $ NT.closeTransport transport)
+        -- It turned out (see AD-101) that 'closeTransport' sometimes
+        -- hangs (mostly in ariadne-qt case). We don't know concrete
+        -- reasons why it happens and as a workaround we just don't
+        -- call that function. It's not too bad, because this code can
+        -- be called only when the application is being closed and
+        -- nobody guarantees such code will be called anyway.
+        Right transport -> return (concrete transport, pass)
+        -- Right transport -> return (concrete transport, liftIO $ NT.closeTransport transport)
 
 -- | RAII for 'Transport'.
 bracketTransport
