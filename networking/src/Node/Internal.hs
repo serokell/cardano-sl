@@ -706,13 +706,19 @@ stopNode node@Node {..} = do
 killNode
     :: ( Mockable SharedAtomic m
        , Mockable Async m
+       , WithLogger m
        )
     => Node packingType peerData m
     -> m ()
 killNode node@Node {..} = do
     cancel nodeDispatcherThread
+    logDebug "Cancelled nodeDispatcherThread"
     cancelRunningHandlers node
-    nodeCloseEndPoint
+    logDebug "Cancelled running handlers"
+    -- Results of AD-101 investigation indicated that this call hangs
+    -- in case of ariadne-qt. As a workaround we just don't call that
+    -- function.
+    -- nodeCloseEndPoint
 
 data ConnectionState peerData m =
 
