@@ -96,9 +96,6 @@ library
 
                       Pos.Wallet.Web.Util
 
-                      Pos.Util.BackupPhrase
-                      Pos.Util.Mnemonics
-
   other-modules:        Paths_cardano_sl_wallet
 
   build-depends:        QuickCheck
