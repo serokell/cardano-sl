@@ -55,8 +55,6 @@ module Pos.Util.UserSecret
        , usPath0
        ) where
 
-import           Universum
-
 import           Control.Exception.Safe (onException, throwString)
 import           Control.Lens (makeLenses, to)
 import qualified Data.ByteString as BS
@@ -72,14 +70,20 @@ import           System.FileLock (FileLock, SharedExclusive (..), lockFile, unlo
 import           System.FilePath (takeDirectory, takeFileName)
 import           System.IO (hClose, openBinaryTempFile)
 import           System.Wlog (WithLogger)
+import           Test.QuickCheck (Arbitrary (..))
+import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
+import           Universum
 
-import           Pos.Binary.Class (Bi (..), decodeFull, encodeListLen, enforceSize, serialize')
-import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
+import           Pos.Arbitrary.Core ()
+import           Pos.Arbitrary.Crypto ()
+import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeFull', deriveSimpleBi,
+                                   encodeListLen, enforceSize, serialize')
 import           Pos.Binary.Crypto ()
 import           Pos.Core (Address, accountGenesisIndex, addressF, makeRootPubKeyAddress,
                            wAddressGenesisIndex)
 import           Pos.Crypto (EncryptedSecretKey, SecretKey, VssKeyPair, encToPublic)
 import           Pos.Util (listLens)
+
 
 #ifdef POSIX
 import           Formatting (oct, sformat)
@@ -102,7 +106,11 @@ data AccountData = AccountData
     -- ^ First value is path, second value is address which can be
     -- computed from root key and path, but it would require a
     -- passphrase.
-    }
+    } deriving (Eq, Show, Generic)
+
+instance Arbitrary AccountData where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
 
 makeLenses ''AccountData
 
@@ -126,7 +134,13 @@ data WalletData = WalletData
     { _wdRootKey  :: !EncryptedSecretKey
     , _wdName     :: !Text
     , _wdAccounts :: !(Vector AccountData)
-    }
+    } deriving (Show, Generic)
+
+deriving instance Eq EncryptedSecretKey => Eq WalletData
+
+instance Arbitrary WalletData where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
 
 makeLenses ''WalletData
 
@@ -154,7 +168,13 @@ data UserSecret = UserSecret
     , _usWallets :: [WalletData]
     , _usPath    :: FilePath
     , _usLock    :: Maybe FileLock
-    }
+    } deriving (Generic)
+
+deriving instance Eq EncryptedSecretKey => Eq UserSecret
+
+instance Arbitrary (Maybe FileLock) => Arbitrary UserSecret where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
 
 makeLenses ''UserSecret
 
@@ -183,7 +203,6 @@ instance Exception UserSecretDecodingError
 instance Buildable UserSecretDecodingError where
     build (UserSecretDecodingError msg) =
         "Failed to decode user secret: " <> bprint build msg
-
 
 -- | Path of lock file for the provided path.
 lockFilePath :: FilePath -> FilePath
@@ -278,7 +297,7 @@ readUserSecret path = do
 #endif
     takeReadLock path $ do
         content <- either (throwM . UserSecretDecodingError . toText) pure .
-                   decodeFull =<< BS.readFile path
+                   decodeFull' =<< BS.readFile path
         pure $ content & usPath .~ path
 
 -- | Reads user secret from the given file.
@@ -287,7 +306,7 @@ peekUserSecret :: (MonadIO m, WithLogger m) => FilePath -> m UserSecret
 peekUserSecret path = do
     initializeUserSecret path
     takeReadLock path $ do
-        econtent <- decodeFull <$> BS.readFile path
+        econtent <- decodeFull' <$> BS.readFile path
         pure $ either (const def) identity econtent & usPath .~ path
 
 -- | Read user secret putting an exclusive lock on it. To unlock, use
@@ -297,7 +316,7 @@ takeUserSecret path = do
     initializeUserSecret path
     liftIO $ do
         l <- lockFile (lockFilePath path) Exclusive
-        econtent <- decodeFull <$> BS.readFile path
+        econtent <- decodeFull' <$> BS.readFile path
         pure $ either (const def) identity econtent
             & usPath .~ path
             & usLock .~ Just l
@@ -351,7 +370,13 @@ data WalletUserSecret = WalletUserSecret
     , _wusWalletName :: Text                -- ^ name of wallet
     , _wusAccounts   :: [(Word32, Text)]    -- ^ accounts coordinates and names
     , _wusAddrs      :: [(Word32, Word32)]  -- ^ addresses coordinates
-    }
+    } deriving (Show, Generic)
+
+deriving instance Eq EncryptedSecretKey => Eq WalletUserSecret
+
+instance Arbitrary WalletUserSecret where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
 
 makeLenses ''WalletUserSecret
 

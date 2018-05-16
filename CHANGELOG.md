@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## Cardano SL 1.2.0 (Mainnet)
+
+TO BE DONE.
+
 ## Cardano SL 1.1.1 (Mainnet)
 
 Bug fix release.
@@ -23,7 +27,7 @@ Most important code changes which made to release 1.1.0.
 
 - Logs are compressed when sent to the reporting server to reduce bandwidth usage.
 
-- The Cardano launcher configuration is improved with support for the YAML format to remove the need for custom scripts for launching the Cardano node. 
+- The Cardano launcher configuration is improved with support for the YAML format to remove the need for custom scripts for launching the Cardano node.
 
 - A new option for launching the Cardano node allows usage of API endpoints without TLS encryption for easier testing while developing integrations.
 
@@ -31,7 +35,7 @@ Most important code changes which made to release 1.1.0.
 
 - Fixed improper node shutdowns, which caused some of the ‘connecting to network’ issues when using Daedalus. Improved Cardano node shutdown behavior by improvements to concurrency and exception handling, providing fixes to rocksdb database bindings.
 
-- Fixed transaction queuing and resubmission logic to remove some of the issues reported by cryptocurrency exchanges. 
+- Fixed transaction queuing and resubmission logic to remove some of the issues reported by cryptocurrency exchanges.
 
 - Several minor fixes to the update system for correctly receiving and installing updates from the blockchain to remove some of the reported cases of failed updates.
 

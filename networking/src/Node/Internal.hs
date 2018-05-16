@@ -152,10 +152,10 @@ instance (Eq (ThreadId m)) => Eq (SomeHandler m) where
 instance (Ord (ThreadId m)) => Ord (SomeHandler m) where
     SomeHandler tid1 _ `compare` SomeHandler tid2 _ = tid1 `compare` tid2
 
-waitSomeHandler :: ( Mockable Async m ) => SomeHandler m -> m ()
+waitSomeHandler :: ( Mockable LowLevelAsync m ) => SomeHandler m -> m ()
 waitSomeHandler (SomeHandler _ promise) = () <$ wait promise
 
-cancelSomeHandler :: ( Mockable Async m ) => SomeHandler m -> m ()
+cancelSomeHandler :: ( Mockable LowLevelAsync m ) => SomeHandler m -> m ()
 cancelSomeHandler (SomeHandler _ promise) = cancel promise
 
 makeSomeHandler :: ( Mockable Async m ) => Promise m t -> m (SomeHandler m)
@@ -621,7 +621,7 @@ startNode
     :: forall packingType peerData m .
        ( Mockable SharedAtomic m, Mockable Channel.Channel m
        , MonadMask m
-       , Mockable Async m, Mockable Concurrently m
+       , Mockable LowLevelAsync m, Mockable Async m, Mockable Concurrently m
        , Ord (ThreadId m), Show (ThreadId m)
        , Mockable CurrentTime m, Mockable Metrics.Metrics m
        , Mockable SharedExclusive m
@@ -677,7 +677,7 @@ startNode packing peerData mkNodeEndPoint mkReceiveDelay mkConnectDelay
 
 -- | Stop a 'Node', closing its network transport and end point.
 stopNode
-    :: ( Mockable Async m, Mockable SharedAtomic m )
+    :: ( Mockable LowLevelAsync m, Mockable SharedAtomic m )
     => Node packingType peerData m
     -> m ()
 stopNode node@Node {..} = do
@@ -705,7 +705,7 @@ stopNode node@Node {..} = do
 -- killing it).
 killNode
     :: ( Mockable SharedAtomic m
-       , Mockable Async m
+       , Mockable LowLevelAsync m
        , WithLogger m
        )
     => Node packingType peerData m
@@ -786,7 +786,7 @@ initialDispatcherState = DispatcherState Map.empty Map.empty
 waitRunningHandlers
     :: forall m packingType peerData .
        ( Mockable SharedAtomic m
-       , Mockable Async m
+       , Mockable LowLevelAsync m
        )
     => Node packingType peerData m
     -> m ()
@@ -799,7 +799,7 @@ waitRunningHandlers node = do
 cancelRunningHandlers
     :: forall m packingType peerData .
        ( Mockable SharedAtomic m
-       , Mockable Async m
+       , Mockable LowLevelAsync m
        )
     => Node packingType peerData m
     -> m ()
@@ -832,7 +832,8 @@ runningHandlers node =
 -- to various handlers.
 nodeDispatcher
     :: forall m packingType peerData .
-       ( Mockable SharedAtomic m, Mockable Async m, Mockable Concurrently m
+       ( Mockable SharedAtomic m, Mockable LowLevelAsync m
+       , Mockable Async m, Mockable Concurrently m
        , Ord (ThreadId m), MonadMask m, Mockable SharedExclusive m
        , Mockable Channel.Channel m
        , Mockable CurrentTime m, Mockable Metrics.Metrics m
@@ -1314,7 +1315,7 @@ nodeDispatcher node handlerInOut =
 spawnHandler
     :: forall peerData m t .
        ( Mockable SharedAtomic m, MonadCatch m
-       , Mockable Async m, Ord (ThreadId m)
+       , Mockable LowLevelAsync m, Mockable Async m, Ord (ThreadId m)
        , Mockable Metrics.Metrics m, Mockable CurrentTime m
        , WithLogger m
        , MonadFix m )
@@ -1425,7 +1426,7 @@ fixedSizeBuilder n =
 --   give an ACK before the specified timeout ('nodeAckTimeout').
 withInOutChannel
     :: forall packingType peerData m a .
-       ( MonadMask m, Mockable Async m, Ord (ThreadId m)
+       ( MonadMask m, Mockable LowLevelAsync m, Mockable Async m, Ord (ThreadId m)
        , Mockable SharedAtomic m
        , Mockable SharedExclusive m
        , Mockable Channel.Channel m
