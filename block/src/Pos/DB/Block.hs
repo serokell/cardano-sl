@@ -31,21 +31,15 @@ module Pos.DB.Block
        , dbPutSerBlundsSumDefault
        ) where
 
-import           Nub (ordNub)
 import           Universum
 
-import           Control.Exception.Safe (handle)
 import           Control.Lens (at)
-import qualified Data.ByteString as BS (hPut, readFile)
 import           Data.Default (Default (def))
-import           Formatting (formatToString)
-import           System.Directory (createDirectoryIfMissing, removeFile)
-import           System.FilePath ((</>))
-import           System.IO (IOMode (WriteMode), hClose, hFlush, openBinaryFile)
-import           System.IO.Error (IOError, isDoesNotExistError)
+import           Formatting (sformat)
+import qualified Database.RocksDB as Rocks
 
 import           Pos.Binary.Block.Types ()
-import           Pos.Binary.Class (Bi, decodeFull', serialize')
+import           Pos.Binary.Class (decodeFull', serialize')
 import           Pos.Binary.Core ()
 import           Pos.Block.BHelpers ()
 import           Pos.Block.Types (Blund, SerializedBlund, SlogUndo (..), Undo (..))
@@ -59,7 +53,7 @@ import           Pos.DB.Class (MonadDB (..), MonadDBRead (..), Serialized (..), 
 import           Pos.DB.Error (DBError (..))
 import           Pos.DB.GState.Common (getTipSomething)
 import           Pos.DB.Pure (DBPureVar, MonadPureDB, atomicModifyIORefPure, pureBlocksStorage)
-import           Pos.DB.Rocks (MonadRealDB, blockDataDir, getNodeDBs)
+import           Pos.DB.Rocks (DB (..), MonadRealDB, getBlockDataDB)
 import           Pos.DB.Sum (MonadDBSum, eitherDB)
 import           Pos.Delegation.Types (DlgUndo (..))
 import           Pos.Util.Util (HasLens (..), eitherToThrow)
@@ -94,11 +88,15 @@ getTipBlock = getTipSomething "block" getBlock
 getSerializedBlock
     :: forall ctx m. (HasConfiguration, MonadRealDB ctx m)
     => HeaderHash -> m (Maybe ByteString)
-getSerializedBlock = blockDataPath >=> getRawData
+getSerializedBlock hh = do
+    DB{..} <- getBlockDataDB
+    liftIO $ Rocks.get rocksDB rocksReadOpts (blockKeyMod . sformat hashHexF $ hh)
 
 -- Get serialization of an undo data for block with given hash from Block DB.
 getSerializedUndo :: (HasConfiguration, MonadRealDB ctx m) => HeaderHash -> m (Maybe ByteString)
-getSerializedUndo = undoDataPath >=> getRawData
+getSerializedUndo hh = do
+    DB{..} <- getBlockDataDB
+    liftIO $ Rocks.get rocksDB rocksReadOpts (undoKeyMod . sformat hashHexF $ hh)
 
 -- For every blund, put given block, its metadata and Undo data into
 -- Block DB. This function uses 'MonadRealDB' constraint which is too
@@ -107,25 +105,25 @@ putSerializedBlunds
     :: (HasConfiguration, MonadRealDB ctx m, MonadDB m)
     => NonEmpty SerializedBlund -> m ()
 putSerializedBlunds (toList -> bs) = do
-    bdd <- view blockDataDir <$> getNodeDBs
-    let allData = map (\(b,u) -> let (dP, bP, uP) = getAllPaths bdd (headerHash b)
-                                 in (dP,(b,u,bP,uP))
+    let allData = map (\(b,u) -> let hh = sformat hashHexF (headerHash b)
+                                 in ( serialize' b
+                                    , unSerialized u
+                                    , hh
+                                    )
                       )
                       bs
-    forM_ (ordNub $ map fst allData) $ \dPath ->
-        liftIO $ createDirectoryIfMissing False dPath
-    forM_ (map snd allData) $ \(blk,serUndo,bPath,uPath) -> do
-        putData bPath blk
-        putRawData uPath (unSerialized serUndo)
+    DB{..} <- getBlockDataDB
+    forM_ allData $ \(blk,serUndo,hh) -> liftIO $ do
+        Rocks.put rocksDB rocksWriteOpts (blockKeyMod hh) blk
+        Rocks.put rocksDB rocksWriteOpts (undoKeyMod hh) serUndo
     putHeadersIndex $ toList $ map (CB.getBlockHeader . fst) bs
 
 deleteBlock :: (MonadRealDB ctx m, MonadDB m) => HeaderHash -> m ()
 deleteBlock hh = do
     deleteHeaderIndex hh
-    bdd <- view blockDataDir <$> getNodeDBs
-    let (_, bPath, uPath) = getAllPaths bdd hh
-    deleteData bPath
-    deleteData uPath
+    DB{..} <- getBlockDataDB
+    Rocks.delete rocksDB rocksWriteOpts (blockKeyMod . sformat hashHexF $ hh)
+    Rocks.delete rocksDB rocksWriteOpts (undoKeyMod . sformat hashHexF $ hh)
 
 ----------------------------------------------------------------------------
 -- Initialization
@@ -254,44 +252,8 @@ dbPutSerBlundsSumDefault b =
 -- Helpers
 ----------------------------------------------------------------------------
 
-getRawData ::  forall m . (MonadIO m, MonadCatch m) => FilePath -> m (Maybe ByteString)
-getRawData  = handle handler . fmap Just . liftIO . BS.readFile
-  where
-    handler :: IOError -> m (Maybe x)
-    handler e
-        | isDoesNotExistError e = pure Nothing
-        | otherwise = throwM e
+undoKeyMod :: Text -> ByteString
+undoKeyMod = ("undo/" <>) . encodeUtf8
 
-putData ::  (MonadIO m, Bi v) => FilePath -> v -> m ()
-putData fp = putRawData fp . serialize'
-
-putRawData ::  MonadIO m => FilePath -> ByteString -> m ()
-putRawData fp v = liftIO $
-    bracket (openBinaryFile fp WriteMode) hClose $ \h ->
-        BS.hPut h v >> hFlush h
-
-deleteData :: (MonadIO m, MonadCatch m) => FilePath -> m ()
-deleteData fp = (liftIO $ removeFile fp) `catch` handler
-  where
-    handler e
-        | isDoesNotExistError e = pure ()
-        | otherwise = throwM e
-
-blockDataPath :: MonadRealDB ctx m => HeaderHash -> m FilePath
-blockDataPath hh = do
-    bdd <- view blockDataDir <$> getNodeDBs
-    pure $ (view _2) $ getAllPaths bdd hh
-
-undoDataPath :: MonadRealDB ctx m => HeaderHash -> m FilePath
-undoDataPath hh = do
-    bdd <- view blockDataDir <$> getNodeDBs
-    pure $ (view _3) $ getAllPaths bdd hh
-
--- | Pass blockDataDir path
-getAllPaths :: FilePath -> HeaderHash -> (FilePath, FilePath, FilePath)
-getAllPaths bdd hh = (dir,bl,un)
-  where
-    (fn0, fn1) = splitAt 2 $ formatToString hashHexF hh
-    dir = bdd </> fn0
-    bl = dir </> (fn1 <> ".block")
-    un = dir </> (fn1 <> ".undo")
+blockKeyMod :: Text -> ByteString
+blockKeyMod = ("block/" <>) . encodeUtf8

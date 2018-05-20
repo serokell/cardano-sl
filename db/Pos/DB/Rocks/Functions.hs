@@ -75,19 +75,20 @@ openNodeDBs recreate fp = do
         removeDirectoryRecursive fp
     let blocksDir = fp </> "blocks"
     let blocksIndexPath = blocksDir </> "index"
-    let _blockDataDir = blocksDir </> "data"
+    let blocksDataPath = blocksDir </> "data"
     let gStatePath = fp </> "gState"
     let lrcPath = fp </> "lrc"
     let miscPath = fp </> "misc"
     mapM_ ensureDirectoryExists
         [ blocksDir
-        , _blockDataDir
+        , blocksDataPath
         , blocksIndexPath
         , gStatePath
         , lrcPath
         , miscPath
         ]
     _blockIndexDB <- openRocksDB blocksIndexPath
+    _blockDataDB <- openRocksDB blocksDataPath
     _gStateDB <- openRocksDB gStatePath
     _lrcDB <- openRocksDB lrcPath
     _miscDB <- openRocksDB miscPath
@@ -100,7 +101,7 @@ openNodeDBs recreate fp = do
 -- | Safely close all databases from 'NodeDBs'.
 closeNodeDBs :: MonadIO m => NodeDBs -> m ()
 closeNodeDBs NodeDBs {..} =
-    mapM_ closeRocksDB [_blockIndexDB, _gStateDB, _lrcDB, _miscDB]
+    mapM_ closeRocksDB [_blockIndexDB, _blockDataDB, _gStateDB, _lrcDB, _miscDB]
 
 usingReadOptions
     :: MonadRealDB ctx m

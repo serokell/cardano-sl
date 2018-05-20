@@ -17,7 +17,6 @@ module Pos.DB.Rocks.Types
        , DB (..)
        , NodeDBs (..)
        , blockIndexDB
-       , blockDataDir
        , gStateDB
        , lrcDB
        , miscDB
@@ -26,6 +25,7 @@ module Pos.DB.Rocks.Types
        , getDBByTag
        , getNodeDBs
        , getBlockIndexDB
+       , getBlockDataDB
        , getGStateDB
        , getLrcDB
        , getMiscDB
@@ -65,7 +65,7 @@ data DB = DB
 
 data NodeDBs = NodeDBs
     { _blockIndexDB :: !DB       -- ^ Block index.
-    , _blockDataDir :: !FilePath -- ^ Block and undo files.
+    , _blockDataDB  :: !DB       -- ^ Block data database
     , _gStateDB     :: !DB       -- ^ Global state corresponding to some tip.
     , _lrcDB        :: !DB       -- ^ Data computed by LRC.
     , _miscDB       :: !DB       -- ^ Everything small and insignificant
@@ -76,6 +76,7 @@ makeLenses ''NodeDBs
 
 dbTagToLens :: DBTag -> Lens' NodeDBs DB
 dbTagToLens BlockIndexDB = blockIndexDB
+dbTagToLens BlockDataDB  = blockDataDB
 dbTagToLens GStateDB     = gStateDB
 dbTagToLens LrcDB        = lrcDB
 dbTagToLens MiscDB       = miscDB
@@ -88,6 +89,9 @@ getDBByTag tag = view (dbTagToLens tag) <$> getNodeDBs
 
 getBlockIndexDB :: MonadRealDB ctx m => m DB
 getBlockIndexDB = getDBByTag BlockIndexDB
+
+getBlockDataDB :: MonadRealDB ctx m => m DB
+getBlockDataDB = getDBByTag BlockDataDB
 
 getGStateDB :: MonadRealDB ctx m => m DB
 getGStateDB = getDBByTag GStateDB
