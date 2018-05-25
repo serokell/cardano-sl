@@ -70,6 +70,7 @@ import           Pos.Util.Util (eitherToThrow)
 -- | Tag which denotes one of DBs used by application.
 data DBTag
     = BlockIndexDB
+    | BlockDataDB
     | GStateDB
     | LrcDB
     | MiscDB
