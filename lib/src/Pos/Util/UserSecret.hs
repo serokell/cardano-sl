@@ -12,9 +12,11 @@ module Pos.Util.UserSecret
          AccountData (..)
        , adName
        , adPath
+       , adLastIndex
        , adAddresses
        , WalletData (..)
        , wdRootKey
+       , wdLastIndex
        , wdName
        , wdAccounts
 
@@ -102,6 +104,8 @@ import           System.Wlog (logWarning)
 data AccountData = AccountData
     { _adName      :: !Text
     , _adPath      :: !Word32 -- for accounts path always contains 1 number
+    , _adLastIndex :: !Word32
+    -- ^ Last derivation index for addresses
     , _adAddresses :: !(Vector (Word32, Address))
     -- ^ First value is path, second value is address which can be
     -- computed from root key and path, but it would require a
@@ -118,6 +122,7 @@ deriveSimpleBi ''AccountData [
     Cons 'AccountData [
         Field [| _adName      :: Text                     |],
         Field [| _adPath      :: Word32                   |],
+        Field [| _adLastIndex :: Word32                   |],
         Field [| _adAddresses :: Vector (Word32, Address) |]
     ]]
 
@@ -131,9 +136,11 @@ instance Buildable AccountData where
         pairsF = later $ fold . map (uncurry $ bprint ("("%build%", "%build%")"))
 
 data WalletData = WalletData
-    { _wdRootKey  :: !EncryptedSecretKey
-    , _wdName     :: !Text
-    , _wdAccounts :: !(Vector AccountData)
+    { _wdRootKey   :: !EncryptedSecretKey
+    , _wdName      :: !Text
+    , _wdLastIndex :: !Word32
+    -- ^ Last derivation index for accounts
+    , _wdAccounts  :: !(Vector AccountData)
     } deriving (Show, Generic)
 
 deriving instance Eq EncryptedSecretKey => Eq WalletData
@@ -148,6 +155,7 @@ deriveSimpleBi ''WalletData [
     Cons 'WalletData [
         Field [| _wdRootKey    :: EncryptedSecretKey |],
         Field [| _wdName       :: Text               |],
+        Field [| _wdLastIndex  :: Word32             |],
         Field [| _wdAccounts   :: Vector AccountData |]
     ]]
 
