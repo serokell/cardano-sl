@@ -294,7 +294,7 @@ initializeUserSecret secretPath = do
 #endif
   where
     createEmptyFile :: (MonadIO m) => FilePath -> m ()
-    createEmptyFile = liftIO . flip writeFile mempty
+    createEmptyFile = liftIO . flip BS.writeFile (serialize' @UserSecret def)
 
 -- | Reads user secret from file, assuming that file exists,
 -- and has mode 600, throws exception in other case
