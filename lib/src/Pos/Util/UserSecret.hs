@@ -84,7 +84,7 @@ import           Pos.Binary.Crypto ()
 import           Pos.Core (Address, accountGenesisIndex, addressF, makeRootPubKeyAddress,
                            wAddressGenesisIndex)
 import           Pos.Crypto (EncryptedSecretKey, SecretKey, VssKeyPair, encToPublic)
-import           Pos.Util (listLens)
+import           Pos.Util (eitherToThrow, listLens)
 
 
 #ifdef POSIX
@@ -294,7 +294,7 @@ initializeUserSecret secretPath = do
 #endif
   where
     createEmptyFile :: (MonadIO m) => FilePath -> m ()
-    createEmptyFile = liftIO . flip writeFile mempty
+    createEmptyFile = liftIO . flip BS.writeFile (serialize' @UserSecret def)
 
 -- | Reads user secret from file, assuming that file exists,
 -- and has mode 600, throws exception in other case
@@ -314,8 +314,9 @@ peekUserSecret :: (MonadIO m, WithLogger m) => FilePath -> m UserSecret
 peekUserSecret path = do
     initializeUserSecret path
     takeReadLock path $ do
-        econtent <- decodeFull' <$> BS.readFile path
-        pure $ either (const def) identity econtent & usPath .~ path
+        content <- eitherToThrow . first UserSecretDecodingError .
+                   decodeFull' =<< BS.readFile path
+        pure $ content & usPath .~ path
 
 -- | Read user secret putting an exclusive lock on it. To unlock, use
 -- 'writeUserSecretRelease'.
@@ -324,10 +325,11 @@ takeUserSecret path = do
     initializeUserSecret path
     liftIO $ do
         l <- lockFile (lockFilePath path) Exclusive
-        econtent <- decodeFull' <$> BS.readFile path
-        pure $ either (const def) identity econtent
-            & usPath .~ path
-            & usLock .~ Just l
+        content <- eitherToThrow . first UserSecretDecodingError .
+                   decodeFull' =<< BS.readFile path
+        pure $ content
+             & usPath .~ path
+             & usLock .~ Just l
 
 -- | Writes user secret .
 writeUserSecret :: (MonadIO m) => UserSecret -> m ()
