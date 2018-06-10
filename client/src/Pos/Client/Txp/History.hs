@@ -33,23 +33,25 @@ import           Control.Monad.Trans (MonadTrans)
 import qualified Data.Map.Strict as M (fromList, insert)
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build, (%))
+import           JsonLog (CanJsonLog (..))
 import           Mockable (CurrentTime, Mockable)
 import           Serokell.Util.Text (listJson)
 import           System.Wlog (WithLogger)
 
 import           Pos.Block.Base (genesisBlock0)
 import           Pos.Core (Address, ChainDifficulty, HasConfiguration, Timestamp (..), difficultyL,
-                           headerHash)
+                           headerHash, protocolMagic, GenesisHash (..), genesisHash)
 import           Pos.Core.Block (Block, MainBlock, mainBlockSlot, mainBlockTxPayload)
 import           Pos.Crypto (WithHash (..), withHash)
 import           Pos.DB (MonadDBRead, MonadGState)
 import           Pos.DB.Block (getBlock)
 import qualified Pos.GState as GS
-import           Pos.KnownPeers (MonadFormatPeers (..))
-import           Pos.Network.Types (HasNodeType)
-import           Pos.Reporting (HasReportingContext)
-import           Pos.Slotting (MonadSlots, getSlotStartPure, getSystemStartM)
-import           Pos.StateLock (StateLock, StateLockMetrics)
+import           Pos.Infra.Network.Types (HasNodeType)
+import           Pos.Infra.Slotting (MonadSlots, getSlotStartPure,
+                                     getSystemStartM)
+import           Pos.Infra.StateLock (StateLock, StateLockMetrics)
+import           Pos.Infra.Util.JsonLog.Events (MemPoolModifyReason)
+import           Pos.Lrc.Genesis (genesisLeaders)
 import           Pos.Txp (MempoolExt, MonadTxpLocal, MonadTxpMem, ToilVerFailure, Tx (..),
                           TxAux (..), TxId, TxOut, TxOutAux (..), TxWitness, TxpError (..),
                           UtxoLookup, UtxoM, UtxoModifier, applyTxToUtxo, buildUtxo, evalUtxoM,
@@ -78,6 +80,15 @@ data TxHistoryEntry = THEntry
     , _thOutputAddrs :: ![Address]
     , _thTimestamp   :: !(Maybe Timestamp)
     } deriving (Show, Eq, Generic, Ord)
+
+instance NFData TxHistoryEntry where
+    rnf tx = _thTxId tx
+        `deepseq` _thTx tx
+        `deepseq` _thDifficulty tx
+        `deepseq` _thInputAddrs tx
+        `deepseq` _thOutputAddrs tx
+        `deepseq` _thTimestamp tx
+        `deepseq` ()
 
 -- | Remained for compatibility
 _thInputAddrs :: TxHistoryEntry -> [Address]
@@ -189,18 +200,17 @@ type TxHistoryEnv ctx m =
     , MonadReader ctx m
     , MonadTxpMem (MempoolExt m) ctx m
     , HasLens' ctx StateLock
-    , HasLens' ctx StateLockMetrics
-    , HasReportingContext ctx
+    , HasLens' ctx (StateLockMetrics MemPoolModifyReason)
     , Mockable CurrentTime m
-    , MonadFormatPeers m
     , HasNodeType ctx
+    , CanJsonLog m
     )
 
 getBlockHistoryDefault
     :: forall ctx m. (HasConfiguration, TxHistoryEnv ctx m)
     => [Address] -> m (Map TxId TxHistoryEntry)
 getBlockHistoryDefault addrs = do
-    let bot      = headerHash genesisBlock0
+    let bot      = headerHash (genesisBlock0 protocolMagic (GenesisHash genesisHash) genesisLeaders)
     sd          <- GS.getSlottingData
     systemStart <- getSystemStartM
 

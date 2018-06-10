@@ -16,16 +16,16 @@ module Pos.Wallet.Web.Pending.Submission
 import           Universum
 
 import           Control.Exception.Safe (Handler (..), catches, onException)
+import           Data.Time.Units (fromMicroseconds)
 import           Formatting (build, sformat, shown, stext, (%))
-import           Serokell.Util (hour)
 import           System.Wlog (WithLogger, logDebug, logInfo)
 
 import           Pos.Client.Txp.History (saveTx, thTimestamp)
 import           Pos.Client.Txp.Network (TxMode)
 import           Pos.Configuration (walletTxCreationDisabled)
-import           Pos.Core (HasConfiguration, diffTimestamp, getCurrentTimestamp)
+import           Pos.Core (diffTimestamp, getCurrentTimestamp)
 import           Pos.Core.Txp (TxAux)
-import           Pos.Util.LogSafe (buildSafe, logInfoSP, logWarningSP, secretOnlyF)
+import           Pos.Infra.Util.LogSafe (buildSafe, logInfoSP, logWarningSP, secretOnlyF)
 import           Pos.Util.Util (maybeThrow)
 import           Pos.Wallet.Web.Error (WalletError (InternalError))
 import           Pos.Wallet.Web.Pending.Functions (isReclaimableFailure, ptxPoolInfo,
@@ -50,7 +50,7 @@ data PtxSubmissionHandlers m = PtxSubmissionHandlers
     }
 
 ptxFirstSubmissionHandler
-    :: (MonadThrow m, WithLogger m)
+    :: (MonadThrow m)
     => PtxSubmissionHandlers m
 ptxFirstSubmissionHandler =
     PtxSubmissionHandlers
@@ -59,7 +59,7 @@ ptxFirstSubmissionHandler =
     }
 
 ptxResubmissionHandler
-    :: forall m. (HasConfiguration, MonadIO m, MonadThrow m, WithLogger m)
+    :: forall m. (MonadIO m, MonadThrow m, WithLogger m)
     => WalletDB
     -> PendingTx
     -> PtxSubmissionHandlers m
@@ -77,7 +77,7 @@ ptxResubmissionHandler db PendingTx{..} =
     }
   where
     cancelPtx
-        :: (Exception e, Buildable e)
+        :: (Buildable e)
         => PtxPoolInfo -> e -> m ()
     cancelPtx poolInfo e = do
         let newCond = PtxWontApply (sformat build e) poolInfo
@@ -118,7 +118,8 @@ submitAndSavePtx db submitTx PtxSubmissionHandlers{..} ptx@PendingTx{..} = do
     now <- getCurrentTimestamp
     if | PtxApplying poolInfo <- _ptxCond,
          Just creationTime <- poolInfo ^. thTimestamp,
-         diffTimestamp now creationTime > hour 1 -> do
+         -- 1 hour, 3600 seconds
+         diffTimestamp now creationTime > fromMicroseconds 3600000000 -> do
            let newCond = PtxWontApply "1h limit exceeded" poolInfo
            void $ casPtxCondition db _ptxWallet _ptxTxId _ptxCond newCond
            logInfo $

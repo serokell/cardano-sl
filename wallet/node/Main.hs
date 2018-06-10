@@ -27,17 +27,18 @@ import           Pos.Communication.Util (ActionSpec (..))
 import           Pos.Configuration (walletProductionApi, walletTxCreationDisabled)
 import           Pos.Context (HasNodeContext)
 import           Pos.DB.DB (initNodeDBs)
-import           Pos.Diffusion.Types (Diffusion (..))
+import           Pos.Infra.Diffusion.Types (Diffusion (..))
+import           Pos.Infra.Ntp.Configuration (NtpConfiguration,
+                                              ntpClientSettings)
 import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations, NodeParams (..),
                                NodeResources (..), bracketNodeResources, loggerBracket, runNode,
                                withConfigurations)
-import           Pos.Ntp.Configuration (NtpConfiguration, ntpClientSettings)
 import           Pos.Ssc.Types (SscParams)
 import           Pos.Txp (txpGlobalSettings)
 import           Pos.Util (lensOf, logException)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 import           Pos.Util.UserSecret (usVss)
-import           Pos.Wallet.Web (AddrCIdHashes (..), WalletWebMode, bracketWalletWS,
+import           Pos.Wallet.Web (WalletWebMode, bracketWalletWS,
                                  bracketWalletWebDB, getSKById, notifierPlugin, runWRealMode,
                                  startPendingTxsResubmitter, walletServeWebFull, walletServerOuts)
 import           Pos.Wallet.Web.State (askWalletDB, askWalletSnapshot, cleanupAcidStatePeriodically,
@@ -80,7 +81,6 @@ actionWithWallet sscParams nodeParams ntpConfig wArgs@WalletArgs {..} = do
                 runWRealMode
                     db
                     conn
-                    (AddrCIdHashes ref)
                     syncRequestsQueue
                     nr
                     (mainAction ntpStatus nr)

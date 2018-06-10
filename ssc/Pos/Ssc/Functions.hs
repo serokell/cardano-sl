@@ -14,7 +14,7 @@ module Pos.Ssc.Functions
        , getStableCertsPure
        ) where
 
-import           Universum
+import           Universum hiding (id)
 
 import           Control.Lens (to)
 import           Control.Monad.Except (MonadError (throwError))
@@ -22,8 +22,7 @@ import qualified Data.HashMap.Strict as HM
 import           Serokell.Util.Verify (isVerSuccess)
 
 import           Pos.Binary.Core ()
-import           Pos.Binary.Crypto ()
-import           Pos.Core (EpochIndex (..), HasConfiguration, HasGenesisData, HasProtocolConstants,
+import           Pos.Core (EpochIndex (..), HasGenesisData, HasProtocolConstants, HasProtocolMagic,
                            IsMainHeader, SlotId (..), StakeholderId, VssCertificatesMap,
                            genesisVssCerts, headerSlotL)
 import           Pos.Core.Slotting (crucialSlot)
@@ -69,7 +68,7 @@ hasVssCertificate id = VCD.member id . _sgsVssCertificates
 --
 -- We also do some general sanity checks.
 verifySscPayload
-    :: (HasConfiguration, MonadError SscVerifyError m)
+    :: (MonadError SscVerifyError m, HasProtocolConstants, HasProtocolMagic)
     => Either EpochIndex (Some IsMainHeader) -> SscPayload -> m ()
 verifySscPayload eoh payload = case payload of
     CommitmentsPayload comms certs -> do

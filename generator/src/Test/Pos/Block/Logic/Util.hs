@@ -15,24 +15,23 @@ module Test.Pos.Block.Logic.Util
        ) where
 
 import           Universum
-import           Unsafe (unsafeHead)
 
 import           Control.Monad.Random.Strict (evalRandT)
 import           Data.Default (Default (def))
+import qualified Data.List as List (head)
 import           Test.QuickCheck.Gen (Gen (MkGen), sized)
 import           Test.QuickCheck.Monadic (PropertyM, pick)
 
 import           Pos.AllSecrets (AllSecrets, HasAllSecrets (..), allSecrets)
 import           Pos.Block.Types (Blund)
-import           Pos.Communication.Limits (HasAdoptedBlockVersionData)
-import           Pos.Core (BlockCount, GenesisData (..), HasConfiguration, HasGenesisData,
-                           SlotId (..), epochIndexL, genesisData)
+import           Pos.Core (BlockCount, GenesisData (..), HasGenesisData,
+                           SlotId (..), epochIndexL, genesisData, HasProtocolConstants)
 import           Pos.Core.Block (Block)
 import           Pos.Generator.Block (BlockGenMode, BlockGenParams (..), MonadBlockGenInit,
                                       genBlocks, tgpTxCountRange)
 import           Pos.Txp (MempoolExt, MonadTxpLocal, TxpGlobalSettings, txpGlobalSettings)
 import           Pos.Util (HasLens', _neLast)
-import           Pos.Util.Chrono (NE, OldestFirst (..))
+import           Pos.Core.Chrono (NE, OldestFirst (..))
 import           Test.Pos.Block.Logic.Mode (BlockProperty, BlockTestContext, btcSlotIdL)
 
 -- | Wrapper for 'bpGenBlocks' to clarify the meaning of the argument.
@@ -81,7 +80,6 @@ bpGenBlocks
        , Default (MempoolExt m)
        , MonadTxpLocal (BlockGenMode (MempoolExt m) m)
        , HasAllSecrets ctx
-       , HasAdoptedBlockVersionData (BlockGenMode (MempoolExt m) m)
        )
     => Maybe BlockCount
     -> EnableTxPayload
@@ -97,16 +95,13 @@ bpGenBlocks blkCnt enableTxPayload inplaceDB = do
 bpGenBlock
     :: ( MonadBlockGenInit ctx m
        , HasLens' ctx TxpGlobalSettings
-       , Default (MempoolExt m)
        , MonadTxpLocal (BlockGenMode (MempoolExt m) m)
        , HasAllSecrets ctx
-       , MonadTxpLocal (BlockGenMode (MempoolExt m) m)
        , Default (MempoolExt m)
-       , HasAdoptedBlockVersionData (BlockGenMode (MempoolExt m) m)
        )
     => EnableTxPayload -> InplaceDB -> PropertyM m Blund
 -- 'unsafeHead' is safe because we create exactly 1 block
-bpGenBlock = fmap (unsafeHead . toList) ... bpGenBlocks (Just 1)
+bpGenBlock = fmap (List.head . toList) ... bpGenBlocks (Just 1)
 
 getAllSecrets :: (MonadReader ctx m, HasAllSecrets ctx) => m AllSecrets
 getAllSecrets = view allSecrets
@@ -125,7 +120,7 @@ withCurrentSlot slot = local (set btcSlotIdL $ Just slot)
 -- future. This function pretends that current slot is after the last
 -- slot of the given blocks.
 satisfySlotCheck
-    :: (HasConfiguration, MonadReader BlockTestContext m)
+    :: ( HasProtocolConstants, MonadReader BlockTestContext m)
     => OldestFirst NE Block
     -> m a
     -> m a

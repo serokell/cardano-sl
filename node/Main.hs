@@ -11,7 +11,7 @@ module Main
 import           Universum
 
 import           Data.Maybe (fromJust)
-import           Mockable (Production, runProduction)
+import           Mockable (Production (..), runProduction)
 import           System.Wlog (LoggerName, logInfo)
 
 import           Pos.Binary ()
@@ -19,7 +19,7 @@ import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..), SimpleNodeA
 import qualified Pos.Client.CLI as CLI
 import           Pos.Launcher (HasConfigurations, NodeParams (..), loggerBracket, runNodeReal,
                                withConfigurations)
-import           Pos.Ntp.Configuration (NtpConfiguration)
+import           Pos.Infra.Ntp.Configuration (NtpConfiguration)
 import           Pos.Ssc.Types (SscParams)
 import           Pos.Update.Worker (updateTriggerWorker)
 import           Pos.Util (logException)
@@ -37,7 +37,7 @@ actionWithoutWallet
     -> NodeParams
     -> Production ()
 actionWithoutWallet sscParams nodeParams =
-    runNodeReal nodeParams sscParams updateTriggerWorker
+    Production $ runNodeReal nodeParams sscParams [updateTriggerWorker]
 
 action
     :: ( HasConfigurations

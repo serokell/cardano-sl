@@ -14,10 +14,6 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:
-                        Pos.Arbitrary.Block
-                        Pos.Arbitrary.Block.Message
-                        Pos.Arbitrary.Block.Generate
-
                         Pos.Block.Base
                         Pos.Block.BHelpers
                         Pos.Block.BListener
@@ -25,6 +21,7 @@ library
                         Pos.Block.Configuration
                         Pos.Block.Error
                         Pos.Block.Logic
+                        Pos.Block.Lrc
                         Pos.Block.RetrievalQueue
                         Pos.Block.Slog
                         Pos.Block.Types
@@ -40,17 +37,9 @@ library
                         Pos.GState.BlockExtra
                         Pos.GState.SanityCheck
 
-                        -- LRC
-                        Pos.Lrc
-                        Pos.Lrc.DB
-                        Pos.Lrc.Genesis
-
                         -- Binary serialization
                         Pos.Binary.Block.Types
                         Pos.Binary.Block.Network
-
-                        -- Utilities
-                        Pos.Util.JsonLog
 
                         -- Exposed for tests
                         Pos.Block.Logic.VAR
@@ -67,17 +56,7 @@ library
                         Pos.Block.Slog.Logic
                         Pos.Block.Slog.Types
 
-                        -- LRC
-                        Pos.Lrc.Consumers
-                        Pos.Lrc.DB.Leaders
-                        Pos.Lrc.DB.Lrc
-                        Pos.Lrc.DB.Richmen
-                        Pos.Lrc.Logic
-                        Pos.Lrc.Worker
-
-
-  build-depends:        QuickCheck
-                      , aeson
+  build-depends:        aeson
                       , base
                       , bytestring
                       , cardano-sl-binary
@@ -94,6 +73,7 @@ library
                       , cardano-sl-util
                       , cborg
                       , conduit
+                      , containers
                       , cryptonite
                       , data-default
                       , directory
@@ -102,7 +82,6 @@ library
                       , exceptions
                       , filepath
                       , formatting
-                      , generic-arbitrary
                       , lens
                       , log-warper
                       , mtl
@@ -149,7 +128,6 @@ library
   default-language:     Haskell2010
 
   ghc-options:          -Wall
-                        -fno-warn-orphans
                         -O2
 
   build-tools: cpphs >= 1.19
@@ -159,6 +137,7 @@ Benchmark bench-block
     type: exitcode-stdio-1.0
     main-is: Block.hs
     hs-source-dirs: bench
+    default-language: Haskell2010
     ghc-options: -O2
     build-depends:   base
                    , bytestring
@@ -167,10 +146,6 @@ Benchmark bench-block
                    , cardano-sl-block
                    , cardano-sl-crypto
                    , cardano-sl-core
-                   , cardano-sl-txp
-                   , cardano-sl-update
-                   , cardano-sl-ssc
-                   , cardano-sl-delegation
                    , formatting
                    , universum
                    , deepseq

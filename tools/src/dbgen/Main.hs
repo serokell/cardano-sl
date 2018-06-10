@@ -5,6 +5,8 @@
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeApplications    #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module Main where
 
 import           Universum
@@ -12,6 +14,7 @@ import           Universum
 import           Control.Concurrent.STM (newTQueueIO)
 import           Data.Default (def)
 import           Data.Maybe (fromJust, isJust)
+import           Data.Time.Units (fromMicroseconds)
 import           Mockable (Production, runProduction)
 import qualified Network.Transport.TCP as TCP
 import           Options.Generic (getRecord)
@@ -21,21 +24,22 @@ import           Pos.Core (Timestamp (..))
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.DB.Rocks.Functions (openNodeDBs)
 import           Pos.DB.Rocks.Types (NodeDBs)
+import           Pos.Infra.Network.CLI (NetworkConfigOpts (..))
+import           Pos.Infra.Network.Types (NetworkConfig (..), Topology (..),
+                                          topologyDequeuePolicy,
+                                          topologyEnqueuePolicy,
+                                          topologyFailurePolicy)
+import           Pos.Infra.Reporting (noReporter)
+import           Pos.Infra.Util.JsonLog.Events (jsonLogConfigFromHandle)
 import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations, NodeResources (..),
                                bracketNodeResources, defaultConfigurationOptions, npBehaviorConfig,
                                npUserSecret, withConfigurations)
-import           Pos.Network.CLI (NetworkConfigOpts (..))
-import           Pos.Network.Types (NetworkConfig (..), Topology (..), topologyDequeuePolicy,
-                                    topologyEnqueuePolicy, topologyFailurePolicy)
 import           Pos.Txp (txpGlobalSettings)
-import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
-import           Pos.Util.JsonLog (jsonLogConfigFromHandle)
 import           Pos.Util.UserSecret (usVss)
 import           Pos.Wallet.Web.Mode (WalletWebModeContext (..))
 import           Pos.Wallet.Web.State.Acidic (closeState, openState)
 import           Pos.Wallet.Web.State.State (WalletDB)
 import           Pos.WorkMode (RealModeContext (..))
-import           Serokell.Util (sec)
 import           System.Wlog (HasLoggerName (..), LoggerName (..))
 
 import           CLI (CLI (..))
@@ -109,11 +113,12 @@ newRealModeContext dbs confOpts secretKeyPath = do
                         <*> jsonLogConfigFromHandle stdout
                         <*> pure (LoggerName "dbgen")
                         <*> pure nrContext
+                        <*> pure noReporter
                         -- <*> initQueue (defaultNetworkConfig (TopologyAuxx mempty)) Nothing
 
 
 walletRunner
-    :: (HasConfigurations, HasCompileInfo)
+    :: HasConfigurations
     => ConfigurationOptions
     -> NodeDBs
     -> FilePath
@@ -127,7 +132,7 @@ walletRunner confOpts dbs secretKeyPath ws act = runProduction $ do
                                  <*> newRealModeContext dbs confOpts secretKeyPath
     runReaderT act wwmc
 
-newWalletState :: (MonadIO m, HasConfigurations) => Bool -> FilePath -> m WalletDB
+newWalletState :: MonadIO m => Bool -> FilePath -> m WalletDB
 newWalletState recreate walletPath =
     -- If the user passed the `--add-to` option, it means we don't have
     -- to rebuild the DB, but rather append stuff into it.
@@ -140,7 +145,7 @@ instance HasLoggerName IO where
 -- TODO(ks): Fix according to Pos.Client.CLI.Options
 newConfig :: CLI -> ConfigurationOptions
 newConfig CLI{..} = defaultConfigurationOptions {
-      cfoSystemStart  = Timestamp . sec <$> systemStart
+      cfoSystemStart  = Timestamp . fromMicroseconds . fromIntegral . (*) 1000000 <$> systemStart
     , cfoFilePath     = configurationPath
     , cfoKey          = toText configurationProf
     }
@@ -152,20 +157,19 @@ main = do
     cli@CLI{..} <- getRecord "DBGen"
     let cfg = newConfig cli
 
-    withConfigurations cfg $ \_ ->
-        withCompileInfo $(retrieveCompileTimeInfo) $ do
-            when showStats (showStatsAndExit walletPath)
+    withConfigurations cfg $ \_ -> do
+        when showStats (showStatsAndExit walletPath)
 
-            say $ bold "Starting the modification of the wallet..."
+        say $ bold "Starting the modification of the wallet..."
 
-            showStatsData "before" walletPath
+        showStatsData "before" walletPath
 
-            dbs  <- openNodeDBs False nodePath -- Do not recreate!
-            spec <- loadGenSpec config
-            ws   <- newWalletState (isJust addTo) walletPath -- Recreate or not
+        dbs  <- openNodeDBs False nodePath -- Do not recreate!
+        spec <- loadGenSpec config
+        ws   <- newWalletState (isJust addTo) walletPath -- Recreate or not
 
-            let generatedWallet = generateWalletDB cli spec
-            walletRunner cfg dbs secretKeyPath ws generatedWallet
-            closeState ws
+        let generatedWallet = generateWalletDB cli spec
+        walletRunner cfg dbs secretKeyPath ws generatedWallet
+        closeState ws
 
-            showStatsData "after" walletPath
+        showStatsData "after" walletPath

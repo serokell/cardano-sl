@@ -37,7 +37,7 @@ import           Pos.Block.Logic.Integrity (verifyBlocks)
 import           Pos.Block.Slog.Context (slogGetLastSlots, slogPutLastSlots)
 import           Pos.Block.Slog.Types (HasSlogGState)
 import           Pos.Block.Types (Blund, SlogUndo (..), Undo (..))
-import           Pos.Core (BlockVersion (..), FlatSlotId, HasConfiguration, blkSecurityParam,
+import           Pos.Core (BlockVersion (..), FlatSlotId, blkSecurityParam,
                            difficultyL, epochIndexL, flattenSlotId, headerHash, headerHashG,
                            prevBlockL)
 import           Pos.Core.Block (Block, genBlockLeaders, mainBlockSlot)
@@ -49,14 +49,14 @@ import qualified Pos.DB.GState.Common as GS (CommonOp (PutMaxSeenDifficulty, Put
                                              getMaxSeenDifficulty)
 import           Pos.Exception (assertionFailed, reportFatalError)
 import qualified Pos.GState.BlockExtra as GS
+import           Pos.Infra.Slotting (MonadSlots (getCurrentSlot))
 import           Pos.Lrc.Context (HasLrcContext, lrcActionOnEpochReason)
 import qualified Pos.Lrc.DB as LrcDB
-import           Pos.Slotting (MonadSlots (getCurrentSlot))
 import           Pos.Update.Configuration (HasUpdateConfiguration, lastKnownBlockVersion)
 import qualified Pos.Update.DB as GS (getAdoptedBVFull)
 import           Pos.Util (_neHead, _neLast)
 import           Pos.Util.AssertMode (inAssertMode)
-import           Pos.Util.Chrono (NE, NewestFirst (getNewestFirst), OldestFirst (..), toOldestFirst,
+import           Pos.Core.Chrono (NE, NewestFirst (getNewestFirst), OldestFirst (..), toOldestFirst,
                                   _OldestFirst)
 
 ----------------------------------------------------------------------------
@@ -105,7 +105,6 @@ type MonadSlogBase ctx m =
     , MonadIO m
     , MonadDBRead m
     , WithLogger m
-    , HasConfiguration
     , HasUpdateConfiguration
     )
 
@@ -126,9 +125,7 @@ type MonadSlogVerify ctx m =
 -- 2.  Call pure verification. If it fails, throw.
 -- 3.  Compute 'SlogUndo's and return them.
 slogVerifyBlocks
-    :: forall ctx m.
-    ( MonadSlogVerify ctx m
-    )
+    :: MonadSlogVerify ctx m
     => OldestFirst NE Block
     -> m (Either Text (OldestFirst NE SlogUndo))
 slogVerifyBlocks blocks = runExceptT $ do
@@ -152,8 +149,10 @@ slogVerifyBlocks blocks = runExceptT $ do
             throwError "Genesis block leaders don't match with LRC-computed"
         _ -> pass
     -- Do pure block verification.
+    let blocksList :: OldestFirst [] Block
+        blocksList = OldestFirst (NE.toList (getOldestFirst blocks))
     verResToMonadError formatAllErrors $
-        verifyBlocks curSlot dataMustBeKnown adoptedBVD leaders blocks
+        verifyBlocks curSlot dataMustBeKnown adoptedBVD leaders blocksList
     -- Here we need to compute 'SlogUndo'. When we apply a block,
     -- we can remove one of the last slots stored in 'BlockExtra'.
     -- This removed slot must be put into 'SlogUndo'.
@@ -212,7 +211,7 @@ newtype ShouldCallBListener = ShouldCallBListener Bool
 --     5. Adding new forward links
 --     6. Setting @inMainChain@ flags
 slogApplyBlocks
-    :: forall ctx m. (MonadSlogApply ctx m)
+    :: MonadSlogApply ctx m
     => ShouldCallBListener
     -> OldestFirst NE Blund
     -> m SomeBatchOp
@@ -280,7 +279,7 @@ newtype BypassSecurityCheck = BypassSecurityCheck Bool
 --     4. Removing forward links
 --     5. Removing @inMainChain@ flags
 slogRollbackBlocks ::
-       forall ctx m. (MonadSlogApply ctx m)
+       MonadSlogApply ctx m
     => BypassSecurityCheck -- ^ is rollback for more than k blocks allowed?
     -> ShouldCallBListener
     -> NewestFirst NE Blund
