@@ -11,10 +11,10 @@ import           Universum
 
 import           Control.Lens (ix)
 import qualified Data.List.NonEmpty as NE
-import           Data.Time.Units (Microsecond)
+import           Data.Time.Units (Microsecond, Second, fromMicroseconds)
 import           Formatting (Format, bprint, build, fixed, int, now, sformat, shown, (%))
 import           Mockable (delay)
-import           Serokell.Util (enumerate, listJson, pairF, sec)
+import           Serokell.Util (enumerate, listJson, pairF)
 import qualified System.Metrics.Label as Label
 import           System.Random (randomRIO)
 import           System.Wlog (logDebug, logError, logInfo, logWarning)
@@ -26,40 +26,38 @@ import           Pos.Block.Configuration (HasBlockConfiguration, criticalCQ, cri
 import           Pos.Block.Logic (calcChainQualityFixedTime, calcChainQualityM,
                                   calcOverallChainQuality, createGenesisBlockAndApply,
                                   createMainBlockAndApply)
-import           Pos.Block.Network.Logic (requestTipOuts, triggerRecovery)
+import           Pos.Block.Network.Logic (triggerRecovery)
 import           Pos.Block.Network.Retrieval (retrievalWorker)
 import           Pos.Block.Slog (scCQFixedMonitorState, scCQOverallMonitorState, scCQkMonitorState,
                                  scCrucialValuesLabel, scDifficultyMonitorState,
                                  scEpochMonitorState, scGlobalSlotMonitorState,
                                  scLocalSlotMonitorState, slogGetLastSlots)
-import           Pos.Communication.Protocol (OutSpecs)
-import           Pos.Core (BlockVersionData (..), ChainDifficulty, FlatSlotId, HasConfiguration,
+import           Pos.Core (BlockVersionData (..), ChainDifficulty, FlatSlotId, HasProtocolConstants,
                            SlotId (..), Timestamp (Timestamp), addressHash, blkSecurityParam,
                            difficultyL, epochOrSlotToSlot, epochSlots, flattenSlotId, gbHeader,
                            getEpochOrSlot, getOurPublicKey, getSlotIndex, slotIdF, unflattenSlotId)
+import           Pos.Core.Chrono (OldestFirst (..))
 import           Pos.Crypto (ProxySecretKey (pskDelegatePk))
 import           Pos.DB (gsIsBootstrapEra)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.Delegation.DB (getPskByIssuer)
 import           Pos.Delegation.Logic (getDlgTransPsk)
 import           Pos.Delegation.Types (ProxySKBlockInfo)
-import           Pos.Diffusion.Types (Diffusion)
-import qualified Pos.Diffusion.Types as Diffusion (Diffusion (announceBlockHeader))
+import           Pos.Infra.Diffusion.Types (Diffusion)
+import qualified Pos.Infra.Diffusion.Types as Diffusion (Diffusion (announceBlockHeader))
+import           Pos.Infra.Recovery.Info (getSyncStatus, getSyncStatusK, needTriggerRecovery,
+                                          recoveryCommGuard)
+import           Pos.Infra.Reporting (HasMisbehaviorMetrics, MetricMonitor (..), MetricMonitorState,
+                                      noReportMonitor, recordValue, reportOrLogE)
+import           Pos.Infra.Slotting (ActionTerminationPolicy (..), OnNewSlotParams (..),
+                                     currentTimeSlotting, defaultOnNewSlotParams,
+                                     getSlotStartEmpatically, onNewSlot)
+import           Pos.Infra.Util.JsonLog.Events (jlCreatedBlock)
+import           Pos.Infra.Util.LogSafe (logDebugS, logInfoS, logWarningS)
+import           Pos.Infra.Util.TimeLimit (logWarningSWaitLinear)
+import           Pos.Infra.Util.TimeWarp (CanJsonLog (..))
 import qualified Pos.Lrc.DB as LrcDB (getLeadersForEpoch)
-import           Pos.Recovery.Info (getSyncStatus, getSyncStatusK, needTriggerRecovery,
-                                    recoveryCommGuard)
-import           Pos.Reporting (MetricMonitor (..), MetricMonitorState, noReportMonitor,
-                                recordValue, reportOrLogE)
-import           Pos.Slotting (ActionTerminationPolicy (..), OnNewSlotParams (..),
-                               currentTimeSlotting, defaultOnNewSlotParams, getSlotStartEmpatically)
 import           Pos.Update.DB (getAdoptedBVData)
-import           Pos.Util (mconcatPair)
-import           Pos.Util.Chrono (OldestFirst (..))
-import           Pos.Util.JsonLog (jlCreatedBlock)
-import           Pos.Util.LogSafe (logDebugS, logInfoS, logWarningS)
-import           Pos.Util.TimeLimit (logWarningSWaitLinear)
-import           Pos.Util.TimeWarp (CanJsonLog (..))
-import           Pos.Worker.Types (Worker, WorkerSpec, onNewSlotWorker, worker)
 
 ----------------------------------------------------------------------------
 -- All workers
@@ -67,20 +65,22 @@ import           Pos.Worker.Types (Worker, WorkerSpec, onNewSlotWorker, worker)
 
 -- | All workers specific to block processing.
 blkWorkers
-    :: BlockWorkMode ctx m
-    => ([WorkerSpec m], OutSpecs)
+    :: ( BlockWorkMode ctx m
+       , HasMisbehaviorMetrics ctx
+       )
+    => [Diffusion m -> m ()]
 blkWorkers =
-    merge $ [ blkCreatorWorker
-            , informerWorker
-            , retrievalWorker
-            , recoveryTriggerWorker
-            ]
-  where
-    merge = mconcatPair . map (first pure)
+    [ blkCreatorWorker
+    , informerWorker
+    , retrievalWorker
+    , recoveryTriggerWorker
+    ]
 
-informerWorker :: BlockWorkMode ctx m => (WorkerSpec m, OutSpecs)
+informerWorker
+    :: ( BlockWorkMode ctx m
+    ) => Diffusion m -> m ()
 informerWorker =
-    onNewSlotWorker defaultOnNewSlotParams mempty $ \slotId _ ->
+    \_ -> onNewSlot defaultOnNewSlotParams $ \slotId ->
         recoveryCommGuard "onNewSlot worker, informerWorker" $ do
             tipHeader <- DB.getTipHeader
             -- Printe tip header
@@ -101,9 +101,12 @@ informerWorker =
 -- Block creation worker
 ----------------------------------------------------------------------------
 
-blkCreatorWorker :: BlockWorkMode ctx m => (WorkerSpec m, OutSpecs)
+blkCreatorWorker
+    :: ( BlockWorkMode ctx m
+       , HasMisbehaviorMetrics ctx
+       ) => Diffusion m -> m ()
 blkCreatorWorker =
-    onNewSlotWorker onsp mempty $ \slotId diffusion ->
+    \diffusion -> onNewSlot onsp $ \slotId ->
         recoveryCommGuard "onNewSlot worker, blkCreatorWorker" $
         blockCreator slotId diffusion `catchAny` onBlockCreatorException
   where
@@ -114,7 +117,9 @@ blkCreatorWorker =
         {onspTerminationPolicy = NewSlotTerminationPolicy "block creator"}
 
 blockCreator
-    :: BlockWorkMode ctx m
+    :: ( BlockWorkMode ctx m
+       , HasMisbehaviorMetrics ctx
+       )
     => SlotId -> Diffusion m -> m ()
 blockCreator (slotId@SlotId {..}) diffusion = do
 
@@ -178,10 +183,12 @@ blockCreator (slotId@SlotId {..}) diffusion = do
            | otherwise -> pass
 
 onNewSlotWhenLeader
-    :: BlockWorkMode ctx m
+    :: ( BlockWorkMode ctx m
+       )
     => SlotId
     -> ProxySKBlockInfo
-    -> Worker m
+    -> Diffusion m
+    -> m ()
 onNewSlotWhenLeader slotId pske diffusion = do
     let logReason =
             sformat ("I have a right to create a block for the slot "%slotIdF%" ")
@@ -216,20 +223,16 @@ onNewSlotWhenLeader slotId pske diffusion = do
 -- Recovery trigger worker
 ----------------------------------------------------------------------------
 
-recoveryTriggerWorker ::
-       forall ctx m. (BlockWorkMode ctx m)
-    => (WorkerSpec m, OutSpecs)
-recoveryTriggerWorker =
-    worker (requestTipOuts (Proxy :: Proxy m)) recoveryTriggerWorkerImpl
-
-recoveryTriggerWorkerImpl
+recoveryTriggerWorker
     :: forall ctx m.
-       (BlockWorkMode ctx m)
+       ( BlockWorkMode ctx m
+       )
     => Diffusion m -> m ()
-recoveryTriggerWorkerImpl diffusion = do
+recoveryTriggerWorker diffusion = do
     -- Initial heuristic delay is needed (the system takes some time
     -- to initialize).
-    delay $ sec 3
+    -- TBD why 3 seconds? Why delay at all? Come on, we can do better.
+    delay (3 :: Second)
 
     repeatOnInterval $ do
         doTrigger <- needTriggerRecovery <$> getSyncStatusK
@@ -258,14 +261,14 @@ recoveryTriggerWorkerImpl diffusion = do
         -- headers. Or it may happen that we will receive only
         -- useless broken tips for some reason (attack?). This
         -- will minimize risks and network load.
-        when (doTrigger || triggerSafety) $ delay $ sec 20
+        when (doTrigger || triggerSafety) $ delay (20 :: Second)
   where
     repeatOnInterval action = void $ do
-        delay $ sec 1
+        delay (1 :: Second)
         -- REPORT:ERROR 'reportOrLogE' in recovery trigger worker
         void $ action `catchAny` \e -> do
             reportOrLogE "recoveryTriggerWorker" e
-            delay $ sec 15
+            delay (15 :: Second)
         repeatOnInterval action
 
 ----------------------------------------------------------------------------
@@ -281,7 +284,7 @@ recoveryTriggerWorkerImpl diffusion = do
 --
 -- Apart from chain quality check we also record some generally useful values.
 metricWorker
-    :: forall ctx m. BlockWorkMode ctx m
+    :: BlockWorkMode ctx m
     => SlotId -> m ()
 metricWorker curSlot = do
     OldestFirst lastSlots <- slogGetLastSlots
@@ -354,7 +357,8 @@ reportCrucialValues = do
 ----------------------------------------------------------------------------
 
 chainQualityChecker ::
-       forall ctx m. BlockWorkMode ctx m
+       ( BlockWorkMode ctx m
+       )
     => SlotId
     -> FlatSlotId
     -> m ()
@@ -374,7 +378,7 @@ chainQualityChecker curSlot kThSlot = do
 
 -- Monitor for chain quality for last k blocks.
 cqkMetricMonitor ::
-       (HasBlockConfiguration, HasConfiguration)
+       ( HasBlockConfiguration, HasProtocolConstants )
     => MetricMonitorState Double
     -> Bool
     -> MetricMonitor Double
@@ -393,7 +397,7 @@ cqkMetricMonitor st isBootstrapEra =
     classifier :: Microsecond -> Maybe Double -> Double -> Maybe Bool
     classifier timePassed prevVal newVal
         -- report at most once per 400 sec, unless decreased
-        | not decreased && timePassed < sec 400 = Nothing
+        | not decreased && timePassed < fromMicroseconds 400000000 = Nothing
         | newVal < criticalThreshold = Just True
         | newVal < nonCriticalThreshold = Just False
         | otherwise = Nothing

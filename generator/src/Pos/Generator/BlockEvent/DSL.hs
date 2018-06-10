@@ -30,7 +30,7 @@ module Pos.Generator.BlockEvent.DSL
 import           Universum
 
 import           Control.Lens (at, makeLenses, (%=), (.=))
-import           Control.Monad.Random.Strict (RandT, RandomGen, mapRandT)
+import           Control.Monad.Random.Strict (RandT, mapRandT)
 import qualified Data.Map as Map
 
 import           Pos.AllSecrets (AllSecrets)
@@ -44,7 +44,7 @@ import           Pos.Generator.BlockEvent (BlockApplyResult (..), BlockDesc (..)
                                            SnapshotOperation (..), byChance,
                                            enrichWithSnapshotChecking, genBlocksInStructure,
                                            pathSequence)
-import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), toOldestFirst,
+import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..), toOldestFirst,
                                   _NewestFirst)
 
 data BlockEventGenState = BlockEventGenState
@@ -124,7 +124,7 @@ runBlockEventGenT secrets genStakeholders m = do
     genBlocksInStructure secrets genStakeholders annotations preBlockScenario
 
 runBlockEventGenT' ::
-    (RandomGen g, MonadBlockGen ctx m) =>
+    (MonadBlockGen ctx m) =>
     BlockEventGenT g m () ->
     RandT g m (Map Path BlockDesc, BlockScenario' Path)
 runBlockEventGenT' m = do

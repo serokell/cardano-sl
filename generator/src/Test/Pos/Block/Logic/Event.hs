@@ -28,9 +28,8 @@ import           Pos.Generator.BlockEvent (BlockApplyResult (..), BlockEvent, Bl
                                            BlockScenario, BlockScenario' (..), SnapshotId,
                                            SnapshotOperation (..), beaInput, beaOutValid, berInput,
                                            berOutValid)
-import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Txp (MonadTxpLocal)
-import           Pos.Util.Chrono (NE, OldestFirst)
+import           Pos.Core.Chrono (NE, OldestFirst)
 import           Pos.Util.Util (eitherToThrow, lensOf)
 import           Test.Pos.Block.Logic.Mode (BlockTestContext, PureDBSnapshotsVar (..))
 import           Test.Pos.Block.Logic.Util (satisfySlotCheck)
@@ -53,8 +52,7 @@ data BlockEventResult
     | BlockEventDbChanged DbNotEquivalentToSnapshot
 
 verifyAndApplyBlocks' ::
-       ( HasSscConfiguration
-       , HasConfiguration
+       ( HasConfiguration
        , BlockLrcMode BlockTestContext m
        , MonadTxpLocal m
        )
@@ -70,9 +68,7 @@ verifyAndApplyBlocks' blunds = do
 
 -- | Execute a single block event.
 runBlockEvent ::
-       ( HasSscConfiguration
-       , HasConfiguration
-       , BlockLrcMode BlockTestContext m
+       ( BlockLrcMode BlockTestContext m
        , MonadTxpLocal m
        )
     => BlockEvent
@@ -154,8 +150,6 @@ data BlockScenarioResult
 runBlockScenario ::
        ( MonadPureDB ctx m
        , ctx ~ BlockTestContext
-       , HasSscConfiguration
-       , HasConfiguration
        , BlockLrcMode BlockTestContext m
        , MonadTxpLocal m
        )

@@ -13,16 +13,14 @@ import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck (Gen, Property, Testable, arbitrary, choose, counterexample,
                                   elements, forAll, generate, listOf, listOf1, oneof, property)
 
-import           Pos.Arbitrary.Block ()
 import           Pos.Arbitrary.Delegation (genDlgPayload)
 import           Pos.Arbitrary.Ssc (commitmentMapEpochGen, vssCertificateEpochGen)
-import           Pos.Arbitrary.Txp (GoodTx, goodTxToTxAux)
 import           Pos.Binary.Class (biSize)
 import           Pos.Block.Logic (RawPayload (..), createMainBlockPure)
 import qualified Pos.Communication ()
 import           Pos.Core (BlockVersionData (bvdMaxBlockSize), HasConfiguration, SlotId (..),
                            blkSecurityParam, genesisBlockVersionData, mkVssCertificatesMapLossy,
-                           unsafeMkLocalSlotIndex)
+                           protocolConstants, protocolMagic, unsafeMkLocalSlotIndex)
 import           Pos.Core.Block (BlockHeader, MainBlock)
 import           Pos.Core.Ssc (SscPayload (..))
 import           Pos.Core.Txp (TxAux)
@@ -31,9 +29,11 @@ import           Pos.Crypto (SecretKey)
 import           Pos.Delegation (DlgPayload, ProxySKBlockInfo)
 import           Pos.Ssc.Base (defaultSscPayload)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
-import           Pos.Util (SmallGenerator (..), makeSmall)
 
+import           Test.Pos.Block.Arbitrary ()
 import           Test.Pos.Configuration (withDefConfiguration, withDefUpdateConfiguration)
+import           Test.Pos.Txp.Arbitrary (GoodTx, goodTxToTxAux)
+import           Test.Pos.Util.QuickCheck (SmallGenerator (..), makeSmall)
 
 spec :: Spec
 spec = withDefConfiguration $ withDefUpdateConfiguration $
@@ -65,7 +65,7 @@ spec = withDefConfiguration $ withDefUpdateConfiguration $
             forAll (choose (emptyBSize, emptyBSize * 10)) $ \(fromBytes -> limit) ->
             forAll arbitrary $ \(prevHeader, sk, updatePayload) ->
             forAll validSscPayloadGen $ \(sscPayload, slotId) ->
-            forAll (genDlgPayload (siEpoch slotId)) $ \dlgPayload ->
+            forAll (genDlgPayload protocolMagic (siEpoch slotId)) $ \dlgPayload ->
             forAll (makeSmall $ listOf1 genTxAux) $ \txs ->
             let blk = producePureBlock limit prevHeader txs Nothing slotId
                                        dlgPayload sscPayload updatePayload sk
@@ -150,9 +150,10 @@ spec = withDefConfiguration $ withDefUpdateConfiguration $
 
 validSscPayloadGen :: HasConfiguration => Gen (SscPayload, SlotId)
 validSscPayloadGen = do
-    vssCerts <- makeSmall $ fmap mkVssCertificatesMapLossy $ listOf $ vssCertificateEpochGen 0
+    vssCerts <- makeSmall $ fmap mkVssCertificatesMapLossy $ listOf $
+        vssCertificateEpochGen protocolMagic protocolConstants 0
     let mkSlot i = SlotId 0 (unsafeMkLocalSlotIndex (fromIntegral i))
-    oneof [ do commMap <- makeSmall $ commitmentMapEpochGen 0
+    oneof [ do commMap <- makeSmall $ commitmentMapEpochGen protocolMagic 0
                pure (CommitmentsPayload commMap vssCerts, SlotId 0 minBound)
           , do openingsMap <- makeSmall arbitrary
                pure (OpeningsPayload openingsMap vssCerts, mkSlot (4 * blkSecurityParam + 1))

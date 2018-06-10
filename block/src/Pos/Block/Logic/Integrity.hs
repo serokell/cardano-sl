@@ -27,15 +27,18 @@ import qualified Pos.Binary.Class as Bi
 import           Pos.Binary.Core ()
 import           Pos.Binary.Update ()
 import qualified Pos.Block.BHelpers as BHelpers
-import           Pos.Core (BlockVersionData (..), ChainDifficulty, EpochOrSlot, HasConfiguration,
+import           Pos.Core (BlockVersionData (..), ChainDifficulty, EpochOrSlot,
                            HasDifficulty (..), HasEpochIndex (..), HasEpochOrSlot (..),
-                           HasHeaderHash (..), HeaderHash, SlotId (..), SlotLeaders, addressHash,
-                           gbExtra, gbhExtra, getSlotIndex, headerSlotL, prevBlockL)
-import           Pos.Core.Block (Block, BlockHeader (..), gebAttributes, gehAttributes,
-                                 genBlockLeaders, getBlockHeader, mainHeaderLeaderKey,
+                           HasHeaderHash (..), HeaderHash, SlotId (..), SlotLeaders,
+                           protocolMagic, addressHash, gbExtra, gbhExtra, getSlotIndex,
+                           headerSlotL, prevBlockL, HasProtocolConstants, HasProtocolMagic)
+import           Pos.Core.Block (Block, BlockHeader (..), blockHeaderProtocolMagic,
+                                 gebAttributes, gehAttributes, genBlockLeaders,
+                                 getBlockHeader, mainHeaderLeaderKey,
                                  mebAttributes, mehAttributes)
+import           Pos.Crypto (ProtocolMagic (getProtocolMagic))
 import           Pos.Data.Attributes (areAttributesKnown)
-import           Pos.Util.Chrono (NewestFirst (..), OldestFirst)
+import           Pos.Core.Chrono (NewestFirst (..), OldestFirst)
 
 ----------------------------------------------------------------------------
 -- Header
@@ -83,7 +86,7 @@ verifyFromEither txt (Right _) = verifyGeneric [(True, txt)]
 -- 4.  Header size does not exceed `bvdMaxHeaderSize`.
 -- 5.  (Optional) Header has no unknown attributes.
 verifyHeader
-    :: HasConfiguration
+    :: HasProtocolMagic
     => VerifyHeaderParams -> BlockHeader -> VerificationRes
 verifyHeader VerifyHeaderParams {..} h =
        verifyFromEither "internal header consistency" (BHelpers.verifyBlockHeader h)
@@ -91,7 +94,8 @@ verifyHeader VerifyHeaderParams {..} h =
   where
     checks =
         mconcat
-            [ maybe mempty relatedToPrevHeader vhpPrevHeader
+            [ checkProtocolMagic
+            , maybe mempty relatedToPrevHeader vhpPrevHeader
             , maybe mempty relatedToCurrentSlot vhpCurrentSlot
             , maybe mempty relatedToLeaders vhpLeaders
             , checkSize
@@ -123,9 +127,20 @@ verifyHeader VerifyHeaderParams {..} h =
               ("two adjacent blocks are from different epochs ("%build%" != "%build%")")
               oldEpoch newEpoch
         )
+    -- FIXME do not use 'HasConfigurations' 'protocolMagic'. Take it as a
+    -- parameter instead.
+    checkProtocolMagic =
+        [ ( protocolMagic == blockHeaderProtocolMagic h
+          , sformat
+                ("protocol magic number mismatch: got "%int%" but expected "%int)
+                (getProtocolMagic (blockHeaderProtocolMagic h))
+                (getProtocolMagic protocolMagic)
+          )
+        ]
     checkSize =
         case vhpMaxSize of
             Nothing -> mempty
+            -- FIXME do not use 'biSize'! It's expensive.
             Just maxSize ->
                 [ ( Bi.biSize h <= maxSize
                   , sformat
@@ -189,7 +204,7 @@ verifyHeader VerifyHeaderParams {..} h =
 -- | Verifies a set of block headers. Only basic consensus check and
 -- linking checks are performed!
 verifyHeaders ::
-       HasConfiguration
+       HasProtocolMagic
     => Maybe SlotLeaders
     -> NewestFirst [] BlockHeader
     -> VerificationRes
@@ -242,7 +257,7 @@ data VerifyBlockParams = VerifyBlockParams
 -- 2.  The size of each block does not exceed `bvdMaxBlockSize`.
 -- 3.  (Optional) No block has any unknown attributes.
 verifyBlock
-    :: HasConfiguration
+    :: (HasProtocolConstants, HasProtocolMagic)
     => VerifyBlockParams -> Block -> VerificationRes
 verifyBlock VerifyBlockParams {..} blk = mconcat
     [ verifyFromEither "internal block consistency" (BHelpers.verifyBlock blk)
@@ -288,15 +303,14 @@ type VerifyBlocksIter = (SlotLeaders, Maybe BlockHeader, VerificationRes)
 -- laziness of 'VerificationRes' which is good because laziness for this data
 -- type is crucial.
 verifyBlocks
-    :: ( t ~ OldestFirst f Block
-       , NontrivialContainer t
-       , HasConfiguration
+    :: ( HasProtocolConstants
+       , HasProtocolMagic
        )
     => Maybe SlotId
     -> Bool
     -> BlockVersionData
     -> SlotLeaders
-    -> OldestFirst f Block
+    -> OldestFirst [] Block
     -> VerificationRes
 verifyBlocks curSlotId verifyNoUnknown bvd initLeaders = view _3 . foldl' step start
   where

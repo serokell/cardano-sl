@@ -2,6 +2,8 @@
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE TypeOperators       #-}
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | Pure functions for operations with transactions
 
 module Pos.Client.Txp.Util
@@ -39,7 +41,7 @@ module Pos.Client.Txp.Util
        , TxWithSpendings
        ) where
 
-import           Universum
+import           Universum hiding (tail, keys)
 
 import           Control.Lens (makeLenses, (%=), (.=))
 import           Control.Monad.Except (ExceptT, MonadError (throwError), runExceptT)
@@ -61,7 +63,7 @@ import           Pos.Binary (biSize)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Core (Address, Coin, StakeholderId, TxFeePolicy (..), TxSizeLinear (..),
                            bvdTxFeePolicy, calculateTxSizeLinear, coinToInteger, integerToCoin,
-                           isRedeemAddress, mkCoin, sumCoins, txSizeLinearMinValue,
+                           isRedeemAddress, mkCoin, protocolMagic, sumCoins, txSizeLinearMinValue,
                            unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Crypto (RedeemSecretKey, SafeSigner, SignTag (SignRedeemTx, SignTx),
@@ -69,11 +71,11 @@ import           Pos.Crypto (RedeemSecretKey, SafeSigner, SignTag (SignRedeemTx,
                              safeSign, safeToPublic)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.DB (MonadGState, gsAdoptedBVData)
+import           Pos.Infra.Util.LogSafe (SecureLog, buildUnsecure)
 import           Pos.Script (Script)
 import           Pos.Script.Examples (multisigRedeemer, multisigValidator)
 import           Pos.Txp (Tx (..), TxAux (..), TxFee (..), TxIn (..), TxInWitness (..), TxOut (..),
                           TxOutAux (..), TxSigData (..), Utxo)
-import           Pos.Util.LogSafe (SecureLog, buildUnsecure)
 import           Test.QuickCheck (Arbitrary (..), elements)
 
 type TxInputs = NonEmpty TxIn
@@ -243,7 +245,7 @@ makeMPubKeyTx getSs = makeAbstractTx mkWit
           getSs addr <&> \ss ->
               PkWitness
               { twKey = safeToPublic ss
-              , twSig = safeSign SignTx ss sigData
+              , twSig = safeSign protocolMagic SignTx ss sigData
               }
 
 -- | More specific version of 'makeMPubKeyTx' for convenience
@@ -277,7 +279,7 @@ makeRedemptionTx rsk txInputs txOutputs = either absurd identity $
   where rpk = redeemToPublic rsk
         mkWit _ sigData = Right $ RedeemWitness
             { twRedeemKey = rpk
-            , twRedeemSig = redeemSign SignRedeemTx rsk sigData
+            , twRedeemSig = redeemSign protocolMagic SignRedeemTx rsk sigData
             }
 
 -- | Helper for summing values of `TxOutAux`s
@@ -344,7 +346,7 @@ plainInputPicker (PendingAddresses pendingAddrs) utxo _outputs moneyToSpent =
         if moneyLeft == mkCoin 0
             then return inps
             else do
-            mNextOut <- head <$> use ipsAvailableOutputs
+            mNextOut <- fmap fst . uncons <$> use ipsAvailableOutputs
             case mNextOut of
                 Nothing -> throwError $ NotEnoughMoney moneyLeft
                 Just inp@(_, (TxOutAux (TxOut {..}))) -> do
@@ -405,7 +407,7 @@ groupedInputPicker utxo outputs moneyToSpent =
         if moneyLeft == mkCoin 0
             then return inps
             else do
-                mNextOutGroup <- head <$> use gipsAvailableOutputGroups
+                mNextOutGroup <- fmap fst . uncons <$> use gipsAvailableOutputGroups
                 case mNextOutGroup of
                     Nothing -> if disallowedMoney >= coinToInteger moneyLeft
                         then throwError $ NotEnoughAllowedMoney moneyLeft
@@ -555,7 +557,7 @@ createTx
     -> m (Either TxError TxWithSpendings)
 createTx pendingTx utxo ss outputs addrData =
     createGenericTxSingle pendingTx (\i o -> Right $ makePubKeyTx ss i o)
-    OptimizeForSecurity utxo outputs addrData
+    OptimizeForHighThroughput utxo outputs addrData
 
 -- | Make a transaction, using M-of-N script as a source
 createMOfNTx

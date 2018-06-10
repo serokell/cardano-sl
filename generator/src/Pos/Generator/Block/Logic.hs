@@ -12,7 +12,7 @@ import           Universum
 
 import           Control.Lens (at, ix, _Wrapped)
 import           Control.Monad.Random.Strict (RandT, mapRandT)
-import           Data.Default (Default (def))
+import           Data.Default (Default)
 import           Formatting (build, sformat, (%))
 import           System.Random (RandomGen (..))
 import           System.Wlog (logWarning)
@@ -21,12 +21,12 @@ import           Pos.AllSecrets (HasAllSecrets (..), unInvSecretsMap)
 import           Pos.Block.Base (mkGenesisBlock)
 import           Pos.Block.Logic (applyBlocksUnsafe, createMainBlockInternal, normalizeMempool,
                                   verifyBlocksPrefix)
+import           Pos.Block.Lrc (lrcSingleShot)
 import           Pos.Block.Slog (ShouldCallBListener (..))
 import           Pos.Block.Types (Blund)
 import           Pos.Communication.Message ()
-import           Pos.Communication.Limits (HasAdoptedBlockVersionData)
 import           Pos.Core (EpochOrSlot (..), SlotId (..), addressHash, epochIndexL, getEpochOrSlot,
-                           getSlotIndex)
+                           getSlotIndex, protocolMagic)
 import           Pos.Core.Block (Block)
 import           Pos.Crypto (pskDelegatePk)
 import qualified Pos.DB.BlockIndex as DB
@@ -38,12 +38,10 @@ import           Pos.Generator.Block.Mode (BlockGenMode, BlockGenRandMode, Monad
                                            withCurrentSlot)
 import           Pos.Generator.Block.Param (BlockGenParams, HasBlockGenParams (..))
 import           Pos.Generator.Block.Payload (genPayload)
-import           Pos.Lrc (lrcSingleShot)
 import           Pos.Lrc.Context (lrcActionOnEpochReason)
 import qualified Pos.Lrc.DB as LrcDB
 import           Pos.Txp (MempoolExt, MonadTxpLocal, TxpGlobalSettings)
 import           Pos.Util (HasLens', maybeThrow, _neHead)
-import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 
 ----------------------------------------------------------------------------
 -- Block generation
@@ -55,7 +53,6 @@ type BlockTxpGenMode g ctx m =
     , HasLens' ctx TxpGlobalSettings
     , Default (MempoolExt m)
     , MonadTxpLocal (BlockGenMode (MempoolExt m) m)
-    , HasAdoptedBlockVersionData (BlockGenMode (MempoolExt m) m)
     )
 
 -- | Generate an arbitrary sequence of valid blocks. The blocks are
@@ -96,11 +93,10 @@ genBlock ::
        , MonadBlockGen ctx m
        , Default (MempoolExt m)
        , MonadTxpLocal (BlockGenMode (MempoolExt m) m)
-       , HasAdoptedBlockVersionData (BlockGenMode (MempoolExt m) m)
        )
     => EpochOrSlot
     -> BlockGenRandMode (MempoolExt m) g m (Maybe Blund)
-genBlock eos = withCompileInfo def $ do
+genBlock eos = do
     let epoch = eos ^. epochIndexL
     lift $ unlessM ((epoch ==) <$> LrcDB.getEpoch) (lrcSingleShot epoch)
     -- We need to know leaders to create any block.
@@ -109,7 +105,7 @@ genBlock eos = withCompileInfo def $ do
         EpochOrSlot (Left _) -> do
             tipHeader <- lift DB.getTipHeader
             let slot0 = SlotId epoch minBound
-            let genesisBlock = mkGenesisBlock (Just tipHeader) epoch leaders
+            let genesisBlock = mkGenesisBlock protocolMagic (Right tipHeader) epoch leaders
             fmap Just $ withCurrentSlot slot0 $ lift $ verifyAndApply (Left genesisBlock)
         EpochOrSlot (Right slot@SlotId {..}) -> withCurrentSlot slot $ do
             genPayload slot
@@ -138,7 +134,6 @@ genBlock eos = withCompileInfo def $ do
                              (lift $ genMainBlock slot (swap <$> transCert))
   where
     genMainBlock ::
-        HasCompileInfo =>
         SlotId ->
         ProxySKBlockInfo ->
         BlockGenMode (MempoolExt m) m Blund
@@ -146,9 +141,7 @@ genBlock eos = withCompileInfo def $ do
         createMainBlockInternal slot proxySkInfo >>= \case
             Left err -> throwM (BGFailedToCreate err)
             Right mainBlock -> verifyAndApply $ Right mainBlock
-    verifyAndApply ::
-        HasCompileInfo =>
-        Block -> BlockGenMode (MempoolExt m) m Blund
+    verifyAndApply :: Block -> BlockGenMode (MempoolExt m) m Blund
     verifyAndApply block =
         verifyBlocksPrefix (one block) >>= \case
             Left err -> throwM (BGCreatedInvalid err)

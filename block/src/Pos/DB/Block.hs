@@ -35,21 +35,21 @@ import           Universum
 
 import           Control.Lens (at)
 import           Data.Default (Default (def))
-import           Formatting (sformat)
 import qualified Database.RocksDB as Rocks
+import           Formatting (sformat)
 
 import           Pos.Binary.Block.Types ()
 import           Pos.Binary.Class (decodeFull', serialize')
 import           Pos.Binary.Core ()
 import           Pos.Block.BHelpers ()
-import           Pos.Block.Types (Blund, SerializedBlund, SlogUndo (..), Undo (..))
+import           Pos.Block.Types (Blund, SlogUndo (..), Undo (..))
 import           Pos.Core (HasConfiguration, HeaderHash, headerHash)
 import           Pos.Core.Block (Block, GenesisBlock)
 import qualified Pos.Core.Block as CB
 import           Pos.Crypto (hashHexF)
 import           Pos.DB.BlockIndex (deleteHeaderIndex, putHeadersIndex)
 import           Pos.DB.Class (MonadDB (..), MonadDBRead (..), Serialized (..), SerializedBlock,
-                               SerializedUndo, getBlock, getDeserialized)
+                               SerializedBlund, SerializedUndo, getBlock, getDeserialized)
 import           Pos.DB.Error (DBError (..))
 import           Pos.DB.GState.Common (getTipSomething)
 import           Pos.DB.Pure (DBPureVar, MonadPureDB, atomicModifyIORefPure, pureBlocksStorage)
@@ -67,14 +67,23 @@ getUndo = getDeserialized dbGetSerUndo
 
 -- | Convenient wrapper which combines 'dbGetBlock' and 'dbGetUndo' to
 -- read 'Blund'.
+--
+-- TODO Rewrite to use a single call
 getBlund :: MonadDBRead m => HeaderHash -> m (Maybe (Block, Undo))
 getBlund x =
     runMaybeT $
     (,) <$> MaybeT (getBlock x)
         <*> MaybeT (getUndo x)
 
+-- | Store blunds into a single file.
+--
+--   Notice that this uses an unusual encoding, in order to be able to fetch
+--   either the block or the undo independently without re-encoding.
 putBlunds :: MonadDB m => NonEmpty Blund -> m ()
-putBlunds = dbPutSerBlunds . map (fmap (Serialized . serialize'))
+putBlunds = dbPutSerBlunds
+          . map (\bu@(b,_) -> ( CB.getBlockHeader b
+                              , Serialized . serialize' $ bimap serialize' serialize' bu)
+                )
 
 -- | Get 'Block' corresponding to tip.
 getTipBlock :: MonadDBRead m => m Block
@@ -86,14 +95,14 @@ getTipBlock = getTipSomething "block" getBlock
 
 -- Get serialization of a block with given hash from Block DB.
 getSerializedBlock
-    :: forall ctx m. (HasConfiguration, MonadRealDB ctx m)
+    :: forall ctx m. (MonadRealDB ctx m)
     => HeaderHash -> m (Maybe ByteString)
 getSerializedBlock hh = do
     DB{..} <- getBlockDataDB
     liftIO $ Rocks.get rocksDB rocksReadOpts (blockKeyMod . sformat hashHexF $ hh)
 
 -- Get serialization of an undo data for block with given hash from Block DB.
-getSerializedUndo :: (HasConfiguration, MonadRealDB ctx m) => HeaderHash -> m (Maybe ByteString)
+getSerializedUndo :: (MonadRealDB ctx m) => HeaderHash -> m (Maybe ByteString)
 getSerializedUndo hh = do
     DB{..} <- getBlockDataDB
     liftIO $ Rocks.get rocksDB rocksReadOpts (undoKeyMod . sformat hashHexF $ hh)
@@ -102,8 +111,8 @@ getSerializedUndo hh = do
 -- Block DB. This function uses 'MonadRealDB' constraint which is too
 -- severe. Consider using 'dbPutBlund' instead.
 putSerializedBlunds
-    :: (HasConfiguration, MonadRealDB ctx m, MonadDB m)
-    => NonEmpty SerializedBlund -> m ()
+    :: (MonadRealDB ctx m, MonadDB m)
+    => NonEmpty (CB.BlockHeader, SerializedBlund) -> m ()
 putSerializedBlunds (toList -> bs) = do
     let allData = map (\(b,u) -> let hh = sformat hashHexF (headerHash b)
                                  in ( serialize' b
@@ -133,7 +142,9 @@ prepareBlockDB
     :: MonadDB m
     => GenesisBlock -> m ()
 prepareBlockDB blk =
-    dbPutSerBlunds $ one (Left blk, Serialized $ serialize' genesisUndo)
+    dbPutSerBlunds
+    $ one ( CB.getBlockHeader $ Left blk
+          , Serialized . serialize' $ bimap (serialize' @Block) serialize' (Left blk, genesisUndo))
   where
     genesisUndo =
         Undo
@@ -147,49 +158,40 @@ prepareBlockDB blk =
 -- Pure implementation
 ----------------------------------------------------------------------------
 
-decodeOrFailPureDB
-    :: HasConfiguration
-    => ByteString
-    -> Either Text (Block, Undo)
-decodeOrFailPureDB = decodeFull'
-
-dbGetBlundPureDefault ::
-       (HasConfiguration, MonadPureDB ctx m)
-    => HeaderHash
-    -> m (Maybe (Block, Undo))
-dbGetBlundPureDefault h = do
-    (blund :: Maybe ByteString) <-
-        view (pureBlocksStorage . at h) <$> (view (lensOf @DBPureVar) >>= readIORef)
-    case decodeOrFailPureDB <$> blund of
-        Nothing        -> pure Nothing
-        Just (Left e)  -> throwM (DBMalformed e)
-        Just (Right v) -> pure (Just v)
-
 dbGetSerBlockPureDefault
-    :: (HasConfiguration, MonadPureDB ctx m)
+    :: (MonadPureDB ctx m)
     => HeaderHash
     -> m (Maybe SerializedBlock)
-dbGetSerBlockPureDefault h = (Serialized . serialize' . fst) <<$>> dbGetBlundPureDefault h
+dbGetSerBlockPureDefault h = do
+    (serblund :: Maybe ByteString) <-
+        view (pureBlocksStorage . at h) <$> (view (lensOf @DBPureVar) >>= readIORef)
+    case decodeFull' @(ByteString, ByteString) <$> serblund of
+        Nothing        -> pure Nothing
+        Just (Left e)  -> throwM (DBMalformed e)
+        Just (Right v) -> pure . Just . Serialized $ fst v
 
 dbGetSerUndoPureDefault
-    :: forall ctx m. (HasConfiguration, MonadPureDB ctx m)
+    :: forall ctx m. (MonadPureDB ctx m)
     => HeaderHash
     -> m (Maybe SerializedUndo)
-dbGetSerUndoPureDefault h = (Serialized . serialize' . snd) <<$>> dbGetBlundPureDefault h
+dbGetSerUndoPureDefault h =  do
+    (serblund :: Maybe ByteString) <-
+        view (pureBlocksStorage . at h) <$> (view (lensOf @DBPureVar) >>= readIORef)
+    case decodeFull' @(ByteString, ByteString) <$> serblund of
+        Nothing        -> pure Nothing
+        Just (Left e)  -> throwM (DBMalformed e)
+        Just (Right v) -> pure . Just . Serialized $ snd v
 
 dbPutSerBlundsPureDefault ::
-       forall ctx m. (HasConfiguration, MonadPureDB ctx m, MonadDB m)
-    => NonEmpty SerializedBlund
+       forall ctx m. (MonadPureDB ctx m, MonadDB m)
+    => NonEmpty (CB.BlockHeader, SerializedBlund)
     -> m ()
 dbPutSerBlundsPureDefault (toList -> blunds) = do
-    forM_ blunds $ \(blk, serUndo) -> do
-        undo <- eitherToThrow $ first DBMalformed $ decodeFull' $ unSerialized serUndo
-        let blund :: Blund -- explicit signature is required
-            blund = (blk,undo)
+    forM_ blunds $ \(bh, serBlund) -> do
         (var :: DBPureVar) <- view (lensOf @DBPureVar)
         flip atomicModifyIORefPure var $
-            (pureBlocksStorage . at (headerHash blk) .~ Just (serialize' blund))
-    putHeadersIndex $ map (CB.getBlockHeader . fst) blunds
+            (pureBlocksStorage . at (headerHash bh) .~ Just (unSerialized serBlund))
+    putHeadersIndex $ map fst blunds
 
 ----------------------------------------------------------------------------
 -- Rocks implementation
@@ -200,7 +202,6 @@ dbPutSerBlundsPureDefault (toList -> blunds) = do
 type BlockDBGenericEnv ctx m =
     ( MonadDBRead m
     , MonadRealDB ctx m
-    , HasConfiguration
     )
 
 dbGetSerBlockRealDefault ::
@@ -216,8 +217,8 @@ dbGetSerUndoRealDefault ::
 dbGetSerUndoRealDefault x = Serialized <<$>> getSerializedUndo x
 
 dbPutSerBlundsRealDefault ::
-       (HasConfiguration, MonadDB m, MonadRealDB ctx m)
-    => NonEmpty SerializedBlund
+       (MonadDB m, MonadRealDB ctx m)
+    => NonEmpty (CB.BlockHeader, SerializedBlund)
     -> m ()
 dbPutSerBlundsRealDefault = putSerializedBlunds
 
@@ -228,7 +229,6 @@ dbPutSerBlundsRealDefault = putSerializedBlunds
 type DBSumEnv ctx m =
     ( MonadDB m
     , MonadDBSum ctx m
-    , HasConfiguration
     )
 
 dbGetSerBlockSumDefault
@@ -244,7 +244,7 @@ dbGetSerUndoSumDefault hh =
 
 dbPutSerBlundsSumDefault
     :: forall ctx m. (DBSumEnv ctx m)
-    => NonEmpty SerializedBlund -> m ()
+    => NonEmpty (CB.BlockHeader, SerializedBlund) -> m ()
 dbPutSerBlundsSumDefault b =
     eitherDB (dbPutSerBlundsRealDefault b) (dbPutSerBlundsPureDefault b)
 

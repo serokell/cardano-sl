@@ -16,8 +16,8 @@ module Pos.Util.Lens
 
        ) where
 
-import           Universum
-import           Unsafe (unsafeInit, unsafeLast)
+import           Universum hiding (init, last)
+import           Data.List (init, last)
 
 import           Control.Applicative (ZipList (..))
 import           Control.Lens (Iso', LensRules, coerced, from, lens, lensField, lensRules,
@@ -38,7 +38,7 @@ _neTail f (x :| xs) = (x :|) <$> f xs
 -- | Lens for the last element of 'NonEmpty'.
 _neLast :: Lens' (NonEmpty a) a
 _neLast f (x :| []) = (:| []) <$> f x
-_neLast f (x :| xs) = (\y -> x :| unsafeInit xs ++ [y]) <$> f (unsafeLast xs)
+_neLast f (x :| xs) = (\y -> x :| init xs ++ [y]) <$> f (last xs)
 
 -- Something weird, but maybe it's useful, I dunno.
 applicativeLens :: forall f s a b. Applicative f => Lens' s (f a) -> Lens' a b -> Lens' s (f b)

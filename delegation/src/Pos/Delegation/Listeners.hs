@@ -16,22 +16,20 @@ import           System.Wlog (WithLogger, logDebug, logWarning)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Delegation ()
-import           Pos.Communication.Limits.Types (MessageLimited)
-import           Pos.Communication.Protocol (Message)
-import           Pos.Communication.Relay (DataMsg)
 import           Pos.Core (ProxySKHeavy)
 import           Pos.DB.Class (MonadBlockDBRead, MonadGState)
 import           Pos.Delegation.Class (MonadDelegation)
 import           Pos.Delegation.Configuration (HasDlgConfiguration)
 import           Pos.Delegation.Logic (PskHeavyVerdict (..), processProxySKHeavy)
+import           Pos.Infra.Communication.Protocol (Message)
+import           Pos.Infra.Communication.Relay (DataMsg)
+import           Pos.Infra.StateLock (StateLock)
 import           Pos.Lrc.Context (HasLrcContext)
-import           Pos.StateLock (StateLock)
 import           Pos.Util (HasLens')
 
 -- Message constraints we need to be defined.
-type DlgMessageConstraint m
+type DlgMessageConstraint
      = ( Message (DataMsg ProxySKHeavy)
-       , MessageLimited (DataMsg ProxySKHeavy) m
        )
 
 -- | This is a subset of 'WorkMode'.
@@ -47,11 +45,11 @@ type DlgListenerConstraint ctx m
        , HasLens' ctx StateLock
        , HasLrcContext ctx
        , WithLogger m
-       , DlgMessageConstraint m
+       , DlgMessageConstraint
        , HasDlgConfiguration
        )
 
-handlePsk :: DlgListenerConstraint ctx m => ProxySKHeavy -> m Bool
+handlePsk :: (DlgListenerConstraint ctx m) => ProxySKHeavy -> m Bool
 handlePsk pSk = do
     logDebug $ sformat ("Got request to handle heavyweight psk: "%build) pSk
     verdict <- processProxySKHeavy pSk

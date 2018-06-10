@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 -- | 'Arbitrary' instances for types in 'cardano-sl-infra'
 
 module Pos.Arbitrary.Infra () where
@@ -10,12 +12,15 @@ import           Test.QuickCheck (Arbitrary (..), choose, oneof)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import           Pos.Arbitrary.Core ()
-import           Pos.Communication.Types.Protocol (HandlerSpec (..), VerInfo (..))
-import           Pos.Communication.Types.Relay (DataMsg (..), InvMsg (..), MempoolMsg (..),
-                                                ReqMsg (..))
-import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Delegation (ProxySKHeavy)
-import           Pos.DHT (DHTData (..), DHTKey (..))
+import           Pos.Crypto (HasProtocolMagic)
+import           Pos.Infra.Communication.Types.Protocol (HandlerSpec (..),
+                                                         VerInfo (..))
+import           Pos.Infra.Communication.Types.Relay (DataMsg (..),
+                                                      InvMsg (..),
+                                                      MempoolMsg (..),
+                                                      ReqMsg (..))
+import           Pos.Infra.DHT (DHTData (..), DHTKey (..))
 
 deriving instance Arbitrary DHTData
 
@@ -41,6 +46,6 @@ instance Arbitrary VerInfo where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance HasConfiguration => Arbitrary (DataMsg ProxySKHeavy) where
+instance HasProtocolMagic => Arbitrary (DataMsg ProxySKHeavy) where
     arbitrary = genericArbitrary
     shrink = genericShrink

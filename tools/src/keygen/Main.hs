@@ -4,7 +4,6 @@ module Main
 
 import           Universum
 
-import           Crypto.Random (MonadRandom)
 import           Data.ByteString.Base58 (bitcoinAlphabet, encodeBase58)
 import qualified Data.List as L
 import qualified Data.Text as T
@@ -20,7 +19,8 @@ import           Pos.Binary (asBinary, serialize')
 import qualified Pos.Client.CLI as CLI
 import           Pos.Core (CoreConfiguration (..), GenesisConfiguration (..), RichSecrets (..),
                            addressHash, ccGenesis, coreConfiguration, generateFakeAvvm,
-                           generateRichSecrets, mkVssCertificate, vcSigningKey, vssMaxTTL)
+                           generateRichSecrets, mkVssCertificate, vcSigningKey, vssMaxTTL,
+                           protocolMagic)
 import           Pos.Crypto (EncryptedSecretKey (..), SecretKey (..), VssKeyPair, fullPublicKeyF,
                              hashHexF, noPassEncrypt, redeemPkB64F, toPublic, toVssPublicKey)
 import           Pos.Launcher (HasConfigurations, withConfigurations)
@@ -49,7 +49,7 @@ rearrangeKeyfile fp = do
 rearrange :: (MonadIO m, MonadThrow m, WithLogger m) => FilePath -> m ()
 rearrange msk = mapM_ rearrangeKeyfile =<< liftIO (glob msk)
 
-genPrimaryKey :: (HasConfigurations, MonadIO m, MonadThrow m, WithLogger m, MonadRandom m) => FilePath -> m ()
+genPrimaryKey :: (MonadIO m, MonadThrow m, WithLogger m) => FilePath -> m ()
 genPrimaryKey path = do
     rs <- liftIO generateRichSecrets
     dumpRichSecrets path rs
@@ -63,7 +63,7 @@ genPrimaryKey path = do
             (addressHash pk)
             pk
 
-readKey :: (MonadIO m, MonadThrow m, WithLogger m) => FilePath -> m ()
+readKey :: (MonadIO m, WithLogger m) => FilePath -> m ()
 readKey path = do
     us <- readUserSecret path
     logInfo $ maybe "No Primary key"
@@ -112,7 +112,7 @@ dumpAvvmSeeds DumpAvvmSeedsOptions{..} = do
     logInfo $ "Seeds were generated"
 
 generateKeysByGenesis
-    :: (HasConfigurations, MonadIO m, WithLogger m, MonadThrow m, MonadRandom m)
+    :: (HasConfigurations, MonadIO m, WithLogger m, MonadThrow m)
     => GenKeysOptions -> m ()
 generateKeysByGenesis GenKeysOptions{..} = do
     case ccGenesis coreConfiguration of
@@ -130,6 +130,7 @@ genVssCert path = do
     let primKey = fromMaybe (error "No primary key") (us ^. usPrimKey)
         vssKey  = fromMaybe (error "No VSS key") (us ^. usVss)
     let cert = mkVssCertificate
+                 protocolMagic
                  primKey
                  (asBinary (toVssPublicKey vssKey))
                  (vssMaxTTL - 1)
@@ -157,4 +158,5 @@ main = do
             ReadKey path            -> readKey path
             DumpAvvmSeeds opts      -> dumpAvvmSeeds opts
             GenerateKeysBySpec gkbg -> generateKeysByGenesis gkbg
-            DumpGenesisData {..}    -> CLI.dumpGenesisData dgdCanonical dgdPath
+            DumpGenesisData dgdPath dgdCanonical
+                                    -> CLI.dumpGenesisData dgdCanonical dgdPath
