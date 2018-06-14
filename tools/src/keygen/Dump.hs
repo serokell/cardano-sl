@@ -44,7 +44,7 @@ dumpRichSecrets fp RichSecrets {..} =
                         ]
 
 dumpPoorSecret
-    :: (MonadIO m, MonadThrow m, WithLogger m)
+    :: (WithLogger m)
     => FilePath
     -> PoorSecret
     -> m ()

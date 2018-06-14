@@ -43,7 +43,7 @@ import           Pos.Binary.Class (decodeFull', serialize')
 import           Pos.Binary.Core ()
 import           Pos.Block.BHelpers ()
 import           Pos.Block.Types (Blund, SlogUndo (..), Undo (..))
-import           Pos.Core (HasConfiguration, HeaderHash, headerHash)
+import           Pos.Core (HeaderHash, headerHash)
 import           Pos.Core.Block (Block, GenesisBlock)
 import qualified Pos.Core.Block as CB
 import           Pos.Crypto (hashHexF)
@@ -94,18 +94,39 @@ getTipBlock = getTipSomething "block" getBlock
 ----------------------------------------------------------------------------
 
 -- Get serialization of a block with given hash from Block DB.
-getSerializedBlock
-    :: forall ctx m. (MonadRealDB ctx m)
-    => HeaderHash -> m (Maybe ByteString)
-getSerializedBlock hh = do
-    DB{..} <- getBlockDataDB
-    liftIO $ Rocks.get rocksDB rocksReadOpts (blockKeyMod . sformat hashHexF $ hh)
+getSerializedBlock :: MonadRealDB ctx m => HeaderHash -> m (Maybe ByteString)
+getSerializedBlock hh = fmap fst <$> getSerializedBlockAndUndo hh
 
 -- Get serialization of an undo data for block with given hash from Block DB.
-getSerializedUndo :: (MonadRealDB ctx m) => HeaderHash -> m (Maybe ByteString)
-getSerializedUndo hh = do
-    DB{..} <- getBlockDataDB
-    liftIO $ Rocks.get rocksDB rocksReadOpts (undoKeyMod . sformat hashHexF $ hh)
+getSerializedUndo :: MonadRealDB ctx m => HeaderHash -> m (Maybe ByteString)
+getSerializedUndo hh = fmap snd <$> getSerializedBlockAndUndo hh
+
+getSerializedBlockAndUndo ::
+       MonadRealDB ctx m
+    => HeaderHash
+    -> m (Maybe (ByteString, ByteString))
+getSerializedBlockAndUndo hh = do
+    DB {..} <- getBlockDataDB
+    let rocksGet = Rocks.get rocksDB rocksReadOpts
+    let rocksPut = Rocks.put rocksDB rocksWriteOpts
+    let rocksDel = Rocks.delete rocksDB rocksWriteOpts
+    liftIO (rocksGet (blundKeyMod hh)) >>= \case
+        Nothing -> consolidateBlund rocksGet rocksPut rocksDel
+        Just ser ->
+            eitherToThrow $
+            bimap DBMalformed Just $
+            decodeFull' @(ByteString, ByteString) ser
+  where
+    consolidateBlund rocksGet rocksPut rocksDel = liftIO $ do
+        serBlock <- rocksGet (blockKeyMod hh)
+        serUndo <- rocksGet (undoKeyMod hh)
+        case (,) <$> serBlock <*> serUndo of
+            Just blund -> do
+                rocksPut (blundKeyMod hh) $ serialize' blund
+                rocksDel (blockKeyMod hh)
+                rocksDel (undoKeyMod hh)
+                return $ Just blund
+            Nothing -> return Nothing
 
 -- For every blund, put given block, its metadata and Undo data into
 -- Block DB. This function uses 'MonadRealDB' constraint which is too
@@ -114,25 +135,22 @@ putSerializedBlunds
     :: (MonadRealDB ctx m, MonadDB m)
     => NonEmpty (CB.BlockHeader, SerializedBlund) -> m ()
 putSerializedBlunds (toList -> bs) = do
-    let allData = map (\(b,u) -> let hh = sformat hashHexF (headerHash b)
-                                 in ( serialize' b
-                                    , unSerialized u
-                                    , hh
-                                    )
+    let allData = map (\(bh,bu) -> let hh = headerHash bh
+                                    in (unSerialized bu, hh)
                       )
                       bs
     DB{..} <- getBlockDataDB
-    forM_ allData $ \(blk,serUndo,hh) -> liftIO $ do
-        Rocks.put rocksDB rocksWriteOpts (blockKeyMod hh) blk
-        Rocks.put rocksDB rocksWriteOpts (undoKeyMod hh) serUndo
-    putHeadersIndex $ toList $ map (CB.getBlockHeader . fst) bs
+    forM_ allData $ \(serBlund, hh) -> liftIO $ do
+        Rocks.put rocksDB rocksWriteOpts (blundKeyMod hh) serBlund
+    putHeadersIndex $ map fst bs
 
 deleteBlock :: (MonadRealDB ctx m, MonadDB m) => HeaderHash -> m ()
 deleteBlock hh = do
     deleteHeaderIndex hh
     DB{..} <- getBlockDataDB
-    Rocks.delete rocksDB rocksWriteOpts (blockKeyMod . sformat hashHexF $ hh)
-    Rocks.delete rocksDB rocksWriteOpts (undoKeyMod . sformat hashHexF $ hh)
+    Rocks.delete rocksDB rocksWriteOpts (blockKeyMod hh)
+    Rocks.delete rocksDB rocksWriteOpts (undoKeyMod hh)
+    Rocks.delete rocksDB rocksWriteOpts (blundKeyMod hh)
 
 ----------------------------------------------------------------------------
 -- Initialization
@@ -252,8 +270,11 @@ dbPutSerBlundsSumDefault b =
 -- Helpers
 ----------------------------------------------------------------------------
 
-undoKeyMod :: Text -> ByteString
-undoKeyMod = ("undo/" <>) . encodeUtf8
+undoKeyMod :: HeaderHash -> ByteString
+undoKeyMod = ("undo/" <>) . encodeUtf8 . sformat hashHexF
 
-blockKeyMod :: Text -> ByteString
-blockKeyMod = ("block/" <>) . encodeUtf8
+blockKeyMod :: HeaderHash -> ByteString
+blockKeyMod = ("block/" <>) . encodeUtf8 . sformat hashHexF
+
+blundKeyMod :: HeaderHash -> ByteString
+blundKeyMod = ("blund/" <>) . encodeUtf8 . sformat hashHexF

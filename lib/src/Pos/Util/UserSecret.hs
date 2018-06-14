@@ -81,6 +81,7 @@ import           System.Wlog (WithLogger, logInfo)
 import           Test.QuickCheck (Arbitrary (..))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
+import           Pos.Arbitrary.Core ()
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeFull', deriveSimpleBi,
                                    encodeListLen, enforceSize, serialize')
 import           Pos.Core (Address, accountGenesisIndex, addressF, makeRootPubKeyAddress,
