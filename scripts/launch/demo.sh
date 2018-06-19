@@ -136,7 +136,7 @@ while [[ $i -lt $panesCnt ]]; do
           conf_file=$WALLET_CONFIG
       fi
       wallet_args=" --tlscert $base/../tls-files/server.crt --tlskey $base/../tls-files/server.key --tlsca $base/../tls-files/ca.crt $wallet_flush" # --wallet-rebuild-db'
-      wallet_args="$wallet_args --wallet-address 127.0.0.1:8090"
+      wallet_args="$WALLET_EXTRA_ARGS $wallet_args --wallet-address 127.0.0.1:8090"
       exec_name="$WALLET_EXE_NAME"
       if [[ $WALLET_DEBUG != "" ]]; then
           wallet_args="$wallet_args --wallet-debug"
@@ -172,6 +172,7 @@ while [[ $i -lt $panesCnt ]]; do
         echo "updaterArgs: [bash]"                        >> $CONFIG_PATH
         echo "updateArchive: $updater_file"               >> $CONFIG_PATH
         echo "nodeTimeoutSec: 5"                          >> $CONFIG_PATH
+        echo "statePath: $run_dir"                        >> $CONFIG_PATH
         echo "configuration:"                             >> $CONFIG_PATH
         echo "  filePath: lib/configuration.yaml"         >> $CONFIG_PATH
         echo "  key: default"                             >> $CONFIG_PATH
