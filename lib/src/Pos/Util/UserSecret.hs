@@ -8,19 +8,7 @@
 #endif
 
 module Pos.Util.UserSecret
-       (
-         AccountData (..)
-       , adName
-       , adPath
-       , adLastIndex
-       , adAddresses
-       , WalletData (..)
-       , wdRootKey
-       , wdLastIndex
-       , wdName
-       , wdAccounts
-
-       , UserSecret
+       ( UserSecret
        , usKeys
        , usVss
        , usWallets
@@ -60,11 +48,22 @@ module Pos.Util.UserSecret
 import           Universum hiding (keys)
 
 import           Control.Exception.Safe (onException, throwString)
-import           Control.Lens (makeLenses, to)
+import           Control.Lens (lens, makeLenses, to, (%=))
 import qualified Data.ByteString as BS
 import           Data.Default (Default (..))
+import qualified Data.Map as Map
 import qualified Data.Text.Buildable
-import           Formatting (Format, bprint, build, formatToString, int, later, stext, (%))
+import           Formatting (Format, bprint, build, formatToString, later, (%))
+import           Pos.Arbitrary.Core ()
+import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeFull', deriveSimpleBi,
+                                   encodeListLen, enforceSize, serialize')
+import           Pos.Core (Address, accountGenesisIndex, addressF, makeRootPubKeyAddress,
+                           wAddressGenesisIndex)
+import qualified Pos.Core as Core
+import           Pos.Core.Common (addressHash)
+import           Pos.Crypto (EncryptedSecretKey, SecretKey, VssKeyPair, encToPublic)
+import qualified Pos.Crypto as Core
+import           Pos.Util (eitherToThrow)
 import qualified Prelude
 import           Serokell.Util.Text (listJson)
 import           System.Directory (doesFileExist)
@@ -82,12 +81,6 @@ import           Test.QuickCheck (Arbitrary (..))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import           Pos.Arbitrary.Core ()
-import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeFull', deriveSimpleBi,
-                                   encodeListLen, enforceSize, serialize')
-import           Pos.Core (Address, accountGenesisIndex, addressF, makeRootPubKeyAddress,
-                           wAddressGenesisIndex)
-import           Pos.Crypto (EncryptedSecretKey, SecretKey, VssKeyPair, encToPublic)
-import           Pos.Util (eitherToThrow, listLens)
 
 import           Test.Pos.Crypto.Arbitrary ()
 
@@ -101,73 +94,6 @@ import qualified System.Posix.Types as PSX (FileMode)
 {-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
 
 ----------------------------------------------------------------------------
--- New WalletData and AccountData types
-----------------------------------------------------------------------------
-
-data AccountData = AccountData
-    { _adName      :: !Text
-    , _adPath      :: !Word32 -- for accounts path always contains 1 number
-    , _adLastIndex :: !Word32
-    -- ^ Last derivation index for addresses
-    , _adAddresses :: !(Vector (Word32, Address))
-    -- ^ First value is path, second value is address which can be
-    -- computed from root key and path, but it would require a
-    -- passphrase.
-    } deriving (Eq, Show, Generic)
-
-instance Arbitrary AccountData where
-    arbitrary = genericArbitrary
-    shrink = genericShrink
-
-makeLenses ''AccountData
-
-deriveSimpleBi ''AccountData [
-    Cons 'AccountData [
-        Field [| _adName      :: Text                     |],
-        Field [| _adPath      :: Word32                   |],
-        Field [| _adLastIndex :: Word32                   |],
-        Field [| _adAddresses :: Vector (Word32, Address) |]
-    ]]
-
-instance Buildable AccountData where
-    build AccountData {..} =
-        bprint ("{ name = "%stext%", path = ["%int%"]"%
-                ", addresses = "%pairsF%" }")
-        _adName _adPath _adAddresses
-      where
-        pairsF :: (Buildable a, Buildable b) => Format r (Vector (a, b) -> r)
-        pairsF = later $ fold . map (uncurry $ bprint ("("%build%", "%build%")"))
-
-data WalletData = WalletData
-    { _wdRootKey   :: !EncryptedSecretKey
-    , _wdName      :: !Text
-    , _wdLastIndex :: !Word32
-    -- ^ Last derivation index for accounts
-    , _wdAccounts  :: !(Vector AccountData)
-    } deriving (Show, Generic)
-
-deriving instance Eq EncryptedSecretKey => Eq WalletData
-
-instance Arbitrary WalletData where
-    arbitrary = genericArbitrary
-    shrink = genericShrink
-
-makeLenses ''WalletData
-
-deriveSimpleBi ''WalletData [
-    Cons 'WalletData [
-        Field [| _wdRootKey    :: EncryptedSecretKey |],
-        Field [| _wdName       :: Text               |],
-        Field [| _wdLastIndex  :: Word32             |],
-        Field [| _wdAccounts   :: Vector AccountData |]
-    ]]
-
-instance Buildable WalletData where
-    build WalletData {..} =
-        bprint ("{ name = "%stext%", accounts = "%listJson%" }")
-        _wdName _wdAccounts
-
-----------------------------------------------------------------------------
 -- UserSecret
 ----------------------------------------------------------------------------
 
@@ -176,7 +102,7 @@ instance Buildable WalletData where
 data UserSecret = UserSecret
     { _usPrimKey :: Maybe SecretKey
     , _usVss     :: Maybe VssKeyPair
-    , _usWallets :: [WalletData]
+    , _usWallets :: Map (Core.AddressHash Core.PublicKey) EncryptedSecretKey
     , _usPath    :: FilePath
     , _usLock    :: Maybe FileLock
     } deriving (Generic)
@@ -189,8 +115,20 @@ instance Arbitrary (Maybe FileLock) => Arbitrary UserSecret where
 
 makeLenses ''UserSecret
 
+addSecret
+    :: EncryptedSecretKey
+    -> Map (Core.AddressHash Core.PublicKey) EncryptedSecretKey
+    -> Map (Core.AddressHash Core.PublicKey) EncryptedSecretKey
+addSecret esk = Map.insert (addressHash $ encToPublic esk) esk
+
 usKeys :: Lens' UserSecret [EncryptedSecretKey]
-usKeys = listLens usWallets wdRootKey
+usKeys = lens (Map.elems . _usWallets) (\us eskList -> execState (addEskList eskList) us)
+  where
+    addEskList :: [EncryptedSecretKey] -> State UserSecret ()
+    addEskList [] = return ()
+    addEskList (e:es) = do
+        usWallets %= (addSecret e)
+        addEskList es
 
 class HasUserSecret ctx where
     -- if you're going to mock this TVar, look how it's done for peer state.
@@ -233,7 +171,7 @@ simpleUserSecret :: SecretKey -> FilePath -> UserSecret
 simpleUserSecret sk fp = def & usPrimKey .~ Just sk & usPath .~ fp
 
 instance Default UserSecret where
-    def = UserSecret Nothing Nothing [] "" Nothing
+    def = UserSecret Nothing Nothing Map.empty "" Nothing
 
 -- | It's not network/system-related, so instance shouldn't be under
 -- @Pos.Binary.*@.
