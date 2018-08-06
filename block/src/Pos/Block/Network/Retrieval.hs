@@ -9,7 +9,7 @@ module Pos.Block.Network.Retrieval
 import           Universum
 
 import           Control.Concurrent.STM (putTMVar, swapTMVar, tryReadTBQueue, tryReadTMVar,
-                                         tryTakeTMVar)
+                                         tryTakeTMVar, readTBQueue, TBQueue)
 import           Control.Exception.Safe (handleAny)
 import           Control.Lens (to)
 import           Control.Monad.STM (retry)
@@ -17,22 +17,24 @@ import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (Second)
 import           Formatting (build, int, sformat, (%))
 import           Mockable (delay)
+import qualified System.Metrics.Gauge as Gauge
 import           System.Wlog (logDebug, logError, logInfo, logWarning)
 
 import           Pos.Block.BlockWorkMode (BlockWorkMode)
 import           Pos.Block.Logic (ClassifyHeaderRes (..), classifyNewHeader, getHeadersOlderExp)
-import           Pos.Block.Network.Logic (BlockNetLogicException (..), handleBlocks, triggerRecovery)
+import           Pos.Block.Network.Logic (BlockNetLogicException (..), handleBlocks,
+                                          triggerRecovery)
 import           Pos.Block.RetrievalQueue (BlockRetrievalQueueTag, BlockRetrievalTask (..))
 import           Pos.Block.Types (RecoveryHeaderTag)
-import           Pos.Core (Block, HasHeaderHash (..),  HeaderHash, difficultyL, isMoreDifficult)
+import           Pos.Core (Block, HasHeaderHash (..), HeaderHash, difficultyL, isMoreDifficult)
 import           Pos.Core.Block (BlockHeader)
-import           Pos.Crypto (shortHashF)
+import           Pos.Core.Chrono (NE, OldestFirst (..), _OldestFirst)
+import           Pos.Crypto (ProtocolMagic, shortHashF)
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.Infra.Communication.Protocol (NodeId)
-import           Pos.Infra.Diffusion.Types (Diffusion)
-import qualified Pos.Infra.Diffusion.Types as Diffusion (Diffusion (getBlocks))
+import           Pos.Infra.Diffusion.Types (Diffusion, StreamEntry (..))
+import qualified Pos.Infra.Diffusion.Types as Diffusion (Diffusion (getBlocks, streamBlocks))
 import           Pos.Infra.Reporting (HasMisbehaviorMetrics, reportOrLogE, reportOrLogW)
-import           Pos.Core.Chrono (NE, OldestFirst (..), _OldestFirst)
 import           Pos.Util.Util (HasLens (..))
 
 -- I really don't like join
@@ -53,8 +55,8 @@ retrievalWorker
        ( BlockWorkMode ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => Diffusion m -> m ()
-retrievalWorker diffusion = do
+    => ProtocolMagic -> Diffusion m -> m ()
+retrievalWorker pm diffusion = do
     logInfo "Starting retrievalWorker loop"
     mainLoop
   where
@@ -104,9 +106,9 @@ retrievalWorker diffusion = do
     handleContinues nodeId header = do
         let hHash = headerHash header
         logDebug $ "handleContinues: " <> pretty hHash
-        classifyNewHeader header >>= \case
+        classifyNewHeader pm header >>= \case
             CHContinues ->
-                void $ getProcessBlocks diffusion nodeId (headerHash header) [hHash]
+                void $ getProcessBlocks pm diffusion nodeId (headerHash header) [hHash]
             res -> logDebug $
                 "processContHeader: expected header to " <>
                 "be continuation, but it's " <> show res
@@ -116,7 +118,7 @@ retrievalWorker diffusion = do
     -- enter recovery mode.
     handleAlternative nodeId header = do
         logDebug $ "handleAlternative: " <> pretty (headerHash header)
-        classifyNewHeader header >>= \case
+        classifyNewHeader pm header >>= \case
             CHInvalid _ ->
                 logError "handleAlternative: invalid header got into retrievalWorker queue"
             CHUseless _ ->
@@ -148,7 +150,7 @@ retrievalWorker diffusion = do
         reportOrLogW (sformat
             ("handleRecoveryE: error handling nodeId="%build%", header="%build%": ")
             nodeId (headerHash rHeader)) e
-        dropRecoveryHeaderAndRepeat diffusion nodeId
+        dropRecoveryHeaderAndRepeat pm diffusion nodeId
 
     -- Recovery handling. We assume that header in the recovery variable is
     -- appropriate and just query headers/blocks.
@@ -162,7 +164,7 @@ retrievalWorker diffusion = do
                                         "already present in db"
         logDebug "handleRecovery: fetching blocks"
         checkpoints <- toList <$> getHeadersOlderExp Nothing
-        void $ getProcessBlocks diffusion nodeId (headerHash rHeader) checkpoints
+        void $ streamProcessBlocks pm diffusion nodeId (headerHash rHeader) checkpoints
 
 ----------------------------------------------------------------------------
 -- Entering and exiting recovery mode
@@ -248,9 +250,8 @@ dropRecoveryHeader nodeId = do
 
 -- | Drops the recovery header and, if it was successful, queries the tips.
 dropRecoveryHeaderAndRepeat
-    :: BlockWorkMode ctx m
-    => Diffusion m -> NodeId -> m ()
-dropRecoveryHeaderAndRepeat diffusion nodeId = do
+    :: BlockWorkMode ctx m => ProtocolMagic -> Diffusion m -> NodeId -> m ()
+dropRecoveryHeaderAndRepeat pm diffusion nodeId = do
     kicked <- dropRecoveryHeader nodeId
     when kicked $ attemptRestartRecovery
   where
@@ -258,7 +259,7 @@ dropRecoveryHeaderAndRepeat diffusion nodeId = do
         logDebug "Attempting to restart recovery"
         -- FIXME why delay? Why 2 seconds?
         delay (2 :: Second)
-        handleAny handleRecoveryTriggerE $ triggerRecovery diffusion
+        handleAny handleRecoveryTriggerE $ triggerRecovery pm diffusion
         logDebug "Attempting to restart recovery over"
     handleRecoveryTriggerE =
         -- REPORT:ERROR 'reportOrLogE' somewhere in block retrieval.
@@ -272,12 +273,13 @@ getProcessBlocks
        ( BlockWorkMode ctx m
        , HasMisbehaviorMetrics ctx
        )
-    => Diffusion m
+    => ProtocolMagic
+    -> Diffusion m
     -> NodeId
     -> HeaderHash
     -> [HeaderHash]
     -> m ()
-getProcessBlocks diffusion nodeId desired checkpoints = do
+getProcessBlocks pm diffusion nodeId desired checkpoints = do
     result <- Diffusion.getBlocks diffusion nodeId desired checkpoints
     case OldestFirst <$> nonEmpty (getOldestFirst result) of
       Nothing -> do
@@ -290,7 +292,7 @@ getProcessBlocks diffusion nodeId desired checkpoints = do
           logDebug $ sformat
               ("Retrieved "%int%" blocks")
               (blocks ^. _OldestFirst . to NE.length)
-          handleBlocks blocks diffusion
+          handleBlocks pm blocks diffusion
           -- If we've downloaded any block with bigger
           -- difficulty than ncRecoveryHeader, we're
           -- gracefully exiting recovery mode.
@@ -307,3 +309,54 @@ getProcessBlocks diffusion nodeId desired checkpoints = do
                   else pure False
           when exitedRecovery $
               logInfo "Recovery mode exited gracefully on receiving block we needed"
+
+-- Attempts to catch up by streaming blocks from peer.
+-- Will fall back to getProcessBlocks if streaming is disabled
+-- or not supported by peer.
+streamProcessBlocks
+    :: forall ctx m.
+       ( BlockWorkMode ctx m
+       , HasMisbehaviorMetrics ctx
+       )
+    => ProtocolMagic
+    -> Diffusion m
+    -> NodeId
+    -> HeaderHash
+    -> [HeaderHash]
+    -> m ()
+streamProcessBlocks pm diffusion nodeId desired checkpoints = do
+    logInfo "streaming start"
+    r <- Diffusion.streamBlocks diffusion nodeId desired checkpoints (loop 0 [])
+    case r of
+         Nothing -> do
+             logInfo "streaming not supported, reverting to batch mode"
+             getProcessBlocks pm diffusion nodeId desired checkpoints
+         Just _  -> do
+             logInfo "streaming done"
+             return ()
+  where
+    loop :: Word32 -> [Block] -> (Word32, Maybe Gauge.Gauge, TBQueue StreamEntry) -> m ()
+    loop !n !blocks (streamWindow, wqgM, blockChan) = do
+        streamEntry <- atomically $ readTBQueue blockChan
+        case streamEntry of
+          StreamEnd         -> addBlocks blocks
+          StreamBlock block -> do
+              let batchSize = min 64 streamWindow
+              let n' = n + 1
+              when (n' `mod` 256 == 0) $
+                     logDebug $ sformat ("Read block "%shortHashF%" difficulty "%int) (headerHash block)
+                                        (block ^. difficultyL)
+              case wqgM of
+                   Nothing -> pure ()
+                   Just wqg -> liftIO $ Gauge.dec wqg
+
+              if n' `mod` batchSize == 0
+                 then do
+                     addBlocks (block : blocks)
+                     loop n' [] (streamWindow, wqgM, blockChan)
+                 else
+                     loop n' (block : blocks) (streamWindow, wqgM, blockChan)
+
+    addBlocks [] = return ()
+    addBlocks (block : blocks) =
+        handleBlocks pm (OldestFirst (NE.reverse $ block :| blocks)) diffusion
