@@ -29,6 +29,10 @@ module Pos.DB.Block
        , dbGetSerBlockSumDefault
        , dbGetSerUndoSumDefault
        , dbPutSerBlundsSumDefault
+
+       -- * Low-level API
+       , getSerializedBlock
+       , getSerializedUndo
        ) where
 
 import           Universum
