@@ -113,8 +113,9 @@ packages:
     commit: 49f501a082d745f3b880677220a29cafaa181452
   extra-dep: true
 
+# I don't think making a PR to servant is a good idea at this point
 - location:
-    git: https://github.com/haskell-servant/servant.git
+    git: https://github.com/serokell/servant.git
     commit: 5db013cc36894afdff9e748dbc1c05947c54df3d
   extra-dep: true
   subdirs:
