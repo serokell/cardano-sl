@@ -18,8 +18,6 @@ module Mockable.Concurrent (
 
   , Delay(..)
   , delay
-  , threadDelay
-  , sleepForever
 
   , MyThreadId(..)
   , myThreadId
@@ -54,11 +52,8 @@ module Mockable.Concurrent (
 
 import           Universum
 
-import qualified Control.Concurrent as Conc
-import           Control.Exception (AsyncException (..))
-import           Control.Exception.Safe (Exception)
-import           Control.Monad.IO.Class (MonadIO (liftIO))
-import           Data.Time.Units (TimeUnit (toMicroseconds))
+import           Control.Exception (AsyncException (..), Exception)
+import           Data.Time.Units (TimeUnit)
 import           Mockable.Class
 
 ----------------------------------------------------------------------------
@@ -105,11 +100,9 @@ killThread tid = throwTo tid ThreadKilled
 
 data Delay (m :: * -> *) (t :: *) where
     Delay :: TimeUnit t => t -> Delay m ()    -- Finite delay.
-    SleepForever :: Delay m ()                -- Infinite delay.
 
 instance MFunctor' Delay m n where
     hoist' _ (Delay i)    = Delay i
-    hoist' _ SleepForever = SleepForever
 
 ----------------------------------------------------------------------------
 -- Delay mock helper functions
@@ -118,10 +111,6 @@ instance MFunctor' Delay m n where
 {-# INLINE delay #-}
 delay :: ( Mockable Delay m ) => TimeUnit t => t -> m ()
 delay time = liftMockable $ Delay time
-
-{-# INLINE sleepForever #-}
-sleepForever :: ( Mockable Delay m ) => m ()
-sleepForever = liftMockable SleepForever
 
 ----------------------------------------------------------------------------
 -- MyThreadId mock and helper functions
@@ -290,7 +279,3 @@ instance (Promise n ~ Promise m, ThreadId n ~ ThreadId m) => MFunctor' LowLevelA
 {-# INLINE timeout #-}
 timeout :: (Mockable Delay m, Mockable Async m, TimeUnit t) => t -> m a -> m (Maybe a)
 timeout t ma = rightToMaybe <$> race (delay t) ma
-
--- Temporary workaround for building with LTS-10.8
-threadDelay :: (MonadIO m, TimeUnit unit) => unit -> m ()
-threadDelay = liftIO . Conc.threadDelay . fromIntegral . toMicroseconds
