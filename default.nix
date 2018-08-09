@@ -18,6 +18,7 @@ in
 , forceDontCheck ? false
 , enableProfiling ? false
 , enableDebugging ? false
+, enableBenchmarks ? true
 , allowCustomConfig ? true
 }:
 
@@ -46,6 +47,12 @@ let
       kill $TAILPID
     '';
   });
+  # Enables building but not running of benchmarks when
+  # enableBenchmarks argument is true.
+  buildWithBenchmarks = drv: if enableBenchmarks
+    then doBenchmark (appendConfigureFlag drv "--enable-benchmarks")
+    else drv;
+
   cardanoPkgs = ((import ./pkgs { inherit pkgs; }).override {
     ghc = overrideDerivation pkgs.haskell.compiler.ghc822 (drv: {
       patches = drv.patches ++ [ ./ghc-8.0.2-darwin-rec-link.patch ];
@@ -58,7 +65,7 @@ let
         ];
       });
 
-      cardano-sl = overrideCabal super.cardano-sl (drv: {
+      cardano-sl = overrideCabal (buildWithBenchmarks super.cardano-sl) (drv: {
         # production full nodes shouldn't use wallet as it means different constants
         configureFlags = (drv.configureFlags or []) ++ [
           "-f-asserts"
@@ -70,13 +77,16 @@ let
         };
       });
 
+      cardano-sl-networking = buildWithBenchmarks super.cardano-sl-networking;
+      cardano-sl-block-bench = buildWithBenchmarks super.cardano-sl-block-bench;
+      cardano-sl-explorer = buildWithBenchmarks super.cardano-sl-explorer;
       cardano-sl-wallet-static = justStaticExecutables super.cardano-sl-wallet;
       cardano-sl-client = addRealTimeTestLogs super.cardano-sl-client;
       cardano-sl-generator = addRealTimeTestLogs super.cardano-sl-generator;
       # cardano-sl-auxx = addGitRev (justStaticExecutables super.cardano-sl-auxx);
       cardano-sl-auxx = addGitRev (justStaticExecutables super.cardano-sl-auxx);
       cardano-sl-node = addGitRev super.cardano-sl-node;
-      cardano-sl-wallet-new = addGitRev (justStaticExecutables super.cardano-sl-wallet-new);
+      cardano-sl-wallet-new = addGitRev (justStaticExecutables (buildWithBenchmarks super.cardano-sl-wallet-new));
       cardano-sl-tools = addGitRev (justStaticExecutables (overrideCabal super.cardano-sl-tools (drv: {
         # waiting on load-command size fix in dyld
         doCheck = ! pkgs.stdenv.isDarwin;
@@ -149,6 +159,7 @@ let
   other = rec {
     validateJson = pkgs.callPackage ./tools/src/validate-json {};
     demoCluster = pkgs.callPackage ./scripts/launch/demo-cluster { inherit gitrev; };
+    demoClusterDaedalusDev = pkgs.callPackage ./scripts/launch/demo-cluster { inherit gitrev; disableClientAuth = true; numImportedWallets = 0; };
     shellcheckTests = pkgs.callPackage ./scripts/test/shellcheck.nix { src = ./.; };
     swaggerSchemaValidation = pkgs.callPackage ./scripts/test/wallet/swaggerSchemaValidation.nix { inherit gitrev; };
     walletIntegrationTests = pkgs.callPackage ./scripts/test/wallet/integration { inherit gitrev; };
@@ -174,28 +185,38 @@ let
         wallet = connect { environment = "mainnet-staging"; };
         explorer = connect { executable = "explorer"; environment = "mainnet-staging"; };
       };
+      testnet = {
+        wallet = connect { environment = "testnet"; };
+        explorer = connect { executable = "explorer"; environment = "testnet"; };
+      };
       demoWallet = connect { environment = "demo"; };
     };
     dockerImages = {
       mainnet.wallet = mkDocker { environment = "mainnet"; };
       staging.wallet = mkDocker { environment = "mainnet-staging"; };
+      testnet.wallet = mkDocker { environment = "testnet"; };
     };
 
+    cardano-sl-config = pkgs.runCommand "cardano-sl-config" {} ''
+      mkdir -p $out/lib
+      cp -R ${./log-configs} $out/log-configs
+      cp ${./lib}/configuration.yaml $out/lib
+      cp ${./lib}/*genesis*.json $out/lib
+    '';
     daedalus-bridge = let
       inherit (cardanoPkgs.cardano-sl-node) version;
     in pkgs.runCommand "cardano-daedalus-bridge-${version}" {
-      inherit version;
+      inherit version gitrev buildId;
     } ''
       # Generate daedalus-bridge
-      mkdir -p $out/bin $out/config
+      mkdir -p $out/bin
       cd $out
       ${optionalString (buildId != null) "echo ${buildId} > build-id"}
       echo ${gitrev} > commit-id
       echo ${version} > version
 
-      cp ${./log-configs + "/daedalus.yaml"} config/log-config-prod.yaml
-      cp ${./lib}/configuration.yaml config
-      cp ${./lib}/*genesis*.json config
+      cp --no-preserve=mode -R ${cardano-sl-config}/lib config
+      cp ${cardano-sl-config}/log-configs/daedalus.yaml $out/config/log-config-prod.yaml
       cp ${cardanoPkgs.cardano-sl-tools}/bin/cardano-launcher bin
       cp ${cardanoPkgs.cardano-sl-tools}/bin/cardano-x509-certificates bin
       cp ${cardanoPkgs.cardano-sl-wallet-new}/bin/cardano-node bin

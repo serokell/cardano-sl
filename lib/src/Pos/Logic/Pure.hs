@@ -42,15 +42,18 @@ import           Pos.Logic.Types (KeyVal (..), Logic (..))
 -- | Serves up a single (invalid but well-formed) block and block header for
 -- any request.
 pureLogic
-    :: ( Applicative m )
+    :: ( Monad m )
     => Logic m
 pureLogic = Logic
     { ourStakeholderId   = stakeholderId
     , getSerializedBlock = \_ -> pure (Just serializedBlock)
+    , streamBlocks       = \_ -> pure ()
     , getBlockHeader     = \_ -> pure (Just blockHeader)
     , getHashesRange     = \_ _ _ -> pure (Right (OldestFirst (pure mainBlockHeaderHash)))
     , getBlockHeaders    = \_ _ _ -> pure (Right (NewestFirst (pure blockHeader)))
-    , getLcaMainChain    = \_ -> pure (OldestFirst [])
+      -- This definition of getLcaMainChain decides that all of the input
+      -- hashes are *not* in the chain.
+    , getLcaMainChain    = \hashes -> pure (NewestFirst [], hashes)
     , getTip             = pure block
     , getTipHeader       = pure blockHeader
     , getAdoptedBVData   = pure blockVersionData

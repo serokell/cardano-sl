@@ -20,11 +20,8 @@ import           Data.Tagged (Tagged)
 import           System.FileLock (FileLock)
 import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck
-import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
+import           Test.QuickCheck (Arbitrary (..))
 
-import           Pos.Arbitrary.Core ()
-import           Pos.Arbitrary.Delegation ()
 import           Pos.Arbitrary.Infra ()
 import           Pos.Arbitrary.Slotting ()
 import           Pos.Arbitrary.Ssc ()
@@ -35,16 +32,13 @@ import           Pos.Binary.Core ()
 import           Pos.Binary.Ssc ()
 import qualified Pos.Block.Network as BT
 import qualified Pos.Block.Types as BT
+import           Pos.Core (ProxySKHeavy, StakeholderId, VssCertificate)
 import qualified Pos.Communication as C
 import           Pos.Communication.Limits (mlOpening, mlUpdateVote, mlVssCertificate)
-import qualified Pos.Core as T
 import qualified Pos.Core.Block as BT
-import           Pos.Core.Chrono (NE, NewestFirst, OldestFirst)
-import           Pos.Core.Common (ScriptVersion)
 import qualified Pos.Core.Ssc as Ssc
 import qualified Pos.Crypto as Crypto
 import           Pos.Crypto.Signing (EncryptedSecretKey)
-import           Pos.Data.Attributes (Attributes (..), decodeAttributes, encodeAttributes)
 import           Pos.Delegation (DlgPayload, DlgUndo)
 import           Pos.Infra.Binary ()
 import           Pos.Infra.Communication.Limits.Instances (mlDataMsg, mlInvMsg, mlMempoolMsg,
@@ -53,7 +47,6 @@ import qualified Pos.Infra.Communication.Relay as R
 import           Pos.Infra.Communication.Types.Relay (DataMsg (..))
 import qualified Pos.Infra.DHT.Model as DHT
 import           Pos.Infra.Slotting.Types (SlottingData)
-import           Pos.Merkle (MerkleTree)
 import qualified Pos.Ssc as Ssc
 import qualified Pos.Txp as T
 import qualified Pos.Update as U
@@ -63,7 +56,9 @@ import           Test.Pos.Binary.Helpers (U, binaryTest, extensionProperty, msgL
 import           Test.Pos.Block.Arbitrary ()
 import           Test.Pos.Block.Arbitrary.Message ()
 import           Test.Pos.Configuration (withDefConfiguration)
+import           Test.Pos.Core.Arbitrary ()
 import           Test.Pos.Crypto.Arbitrary ()
+import           Test.Pos.Delegation.Arbitrary ()
 import           Test.Pos.Txp.Arbitrary.Network ()
 import           Test.Pos.Util.QuickCheck (SmallGenerator)
 
@@ -71,76 +66,13 @@ import           Test.Pos.Util.QuickCheck (SmallGenerator)
 type VoteId' = Tagged U.UpdateVote U.VoteId
 type UpId' = Tagged (U.UpdateProposal, [U.UpdateVote])U.UpId
 
-
-data MyScript = MyScript
-    { version :: ScriptVersion -- ^ Version
-    , script  :: ByteString    -- ^ Serialized script
-    } deriving (Eq, Show, Generic, Typeable)
-
-instance Arbitrary MyScript where
-    arbitrary = MyScript <$> arbitrary <*> arbitrary
-
-deriveSimpleBi ''MyScript [
-    Cons 'MyScript [
-        Field [| version :: ScriptVersion |],
-        Field [| script  :: ByteString   |]
-    ]]
-
 ----------------------------------------
-
-data X1 = X1 { x1A :: Int }
-    deriving (Eq, Ord, Show, Generic)
-
-data X2 = X2 { x2A :: Int, x2B :: String }
-    deriving (Eq, Ord, Show, Generic)
-
-instance Arbitrary X1 where
-    arbitrary = genericArbitrary
-    shrink = genericShrink
-
-instance Arbitrary X2 where
-    arbitrary = genericArbitrary
-    shrink = genericShrink
-
-instance Bi (Attributes X1) where
-    encode = encodeAttributes [(0, serialize . x1A)]
-    decode = decodeAttributes (X1 0) $ \n v acc -> case n of
-        0 -> pure $ Just $ acc { x1A = unsafeDeserialize v }
-        _ -> pure $ Nothing
-
-instance Bi (Attributes X2) where
-    encode = encodeAttributes [(0, serialize . x2A), (1, serialize . x2B)]
-    decode = decodeAttributes (X2 0 []) $ \n v acc -> case n of
-        0 -> return $ Just $ acc { x2A = unsafeDeserialize v }
-        1 -> return $ Just $ acc { x2B = unsafeDeserialize v }
-        _ -> return $ Nothing
-
-----------------------------------------
-
-soundSerializationAttributesOfAsProperty
-    :: forall a b aa ab. (aa ~ Attributes a, ab ~ Attributes b,
-                          Bi aa, Bi ab, Eq aa, Arbitrary a, Show aa)
-    => Property
-soundSerializationAttributesOfAsProperty = forAll arbitraryAttrs $ \input ->
-    let serialized      = serialize input
-        (middle  :: ab) = unsafeDeserialize serialized
-        (encoded :: aa) = unsafeDeserialize $ serialize middle
-    in encoded === input
-  where
-    arbitraryAttrs :: Gen aa
-    arbitraryAttrs = Attributes <$> arbitrary <*> arbitrary
-
 
 spec :: Spec
-spec = withDefConfiguration $ do
+spec = withDefConfiguration $ \_ -> do
     describe "Cbor.Bi instances" $ do
         modifyMaxSuccess (const 1000) $ do
-            describe "Test instances" $ do
-                binaryTest @MyScript
-                prop "X2" (soundSerializationAttributesOfAsProperty @X2 @X1)
             describe "Lib/core instances" $ do
-                binaryTest @(Attributes X1)
-                binaryTest @(Attributes X2)
                 brokenDisabled $ binaryTest @UserSecret
                 modifyMaxSuccess (min 50) $ do
                     binaryTest @WalletUserSecret
@@ -148,47 +80,8 @@ spec = withDefConfiguration $ do
 
 
         describe "Types" $ do
-          -- 100 is not enough to catch some bugs (e.g. there was a bug with
-          -- addresses that only manifested when address's CRC started with 0x00)
-          describe "Bi instances" $ do
-              describe "Core.Address" $ do
-                  binaryTest @T.Address
-                  binaryTest @T.Address'
-                  binaryTest @T.AddrType
-                  binaryTest @T.AddrStakeDistribution
-                  binaryTest @T.AddrSpendingData
-              describe "Core.Types" $ do
-                  binaryTest @T.Timestamp
-                  binaryTest @T.TimeDiff
-                  binaryTest @T.EpochIndex
-                  binaryTest @T.Coin
-                  binaryTest @T.CoinPortion
-                  binaryTest @T.LocalSlotIndex
-                  binaryTest @T.SlotId
-                  binaryTest @T.EpochOrSlot
-                  binaryTest @T.SharedSeed
-                  binaryTest @T.ChainDifficulty
-                  binaryTest @T.SoftforkRule
-                  binaryTest @T.BlockVersionData
-                  binaryTest @(Attributes ())
-                  binaryTest @(Attributes T.AddrAttributes)
-              describe "Core.Fee" $ do
-                  binaryTest @T.Coeff
-                  binaryTest @T.TxSizeLinear
-                  binaryTest @T.TxFeePolicy
-              describe "Core.Script" $ do
-                  binaryTest @T.Script
-              describe "Core.Vss" $ do
-                  binaryTest @T.VssCertificate
-              describe "Core.Version" $ do
-                  binaryTest @T.ApplicationName
-                  binaryTest @T.SoftwareVersion
-                  binaryTest @T.BlockVersion
-              describe "Util" $ do
-                  binaryTest @(NewestFirst NE U)
-                  binaryTest @(OldestFirst NE U)
           describe "Message length limit" $ do
-              msgLenLimitedTest @T.VssCertificate mlVssCertificate
+              msgLenLimitedTest @VssCertificate mlVssCertificate
         describe "Block types" $ do
             describe "Bi instances" $ do
                 describe "Undo" $ do
@@ -200,6 +93,8 @@ spec = withDefConfiguration $ do
                     binaryTest @BT.MsgGetBlocks
                     binaryTest @BT.MsgHeaders
                     binaryTest @BT.MsgBlock
+                    binaryTest @BT.MsgStream
+                    binaryTest @BT.MsgStreamBlock
                 describe "Blockchains and blockheaders" $ do
                     modifyMaxSuccess (min 10) $ describe "GenericBlockHeader" $ do
                         describe "GenesisBlockHeader" $ do
@@ -236,8 +131,6 @@ spec = withDefConfiguration $ do
                 binaryTest @C.MessageCode
             describe "Bi extension" $ do
                 prop "HandlerSpec" (extensionProperty @C.HandlerSpec)
-        describe "Merkle" $ do
-            binaryTest @(MerkleTree Int32)
         describe "Crypto" $ do
             describe "Hashing" $ do
                 binaryTest @(Crypto.Hash Word64)
@@ -282,7 +175,7 @@ spec = withDefConfiguration $ do
                 binaryTest @DlgPayload
                 binaryTest @DlgUndo
             describe "Network" $ do
-                binaryTest @(DataMsg T.ProxySKHeavy)
+                binaryTest @(DataMsg ProxySKHeavy)
         describe "Slotting types" $ do
             binaryTest @SlottingData
         describe "Ssc" $ do
@@ -296,8 +189,8 @@ spec = withDefConfiguration $ do
                     binaryTest @Ssc.VssCertData
                     binaryTest @Ssc.SscGlobalState
                 binaryTest @Ssc.SscProof
-                binaryTest @(R.InvMsg (Tagged Ssc.MCCommitment T.StakeholderId))
-                binaryTest @(R.ReqMsg (Tagged Ssc.MCCommitment T.StakeholderId))
+                binaryTest @(R.InvMsg (Tagged Ssc.MCCommitment StakeholderId))
+                binaryTest @(R.ReqMsg (Tagged Ssc.MCCommitment StakeholderId))
                 binaryTest @(R.MempoolMsg Ssc.MCCommitment)
                 binaryTest @(R.DataMsg Ssc.MCCommitment)
                 binaryTest @(R.DataMsg Ssc.MCOpening)
@@ -307,8 +200,8 @@ spec = withDefConfiguration $ do
                 binaryTest @Ssc.SscSecretStorage
             describe "Message length limit" $ do
                 msgLenLimitedTest @Ssc.Opening mlOpening
-                msgLenLimitedTest @(R.InvMsg (Tagged Ssc.MCCommitment T.StakeholderId)) mlInvMsg
-                msgLenLimitedTest @(R.ReqMsg (Tagged Ssc.MCCommitment T.StakeholderId)) mlReqMsg
+                msgLenLimitedTest @(R.InvMsg (Tagged Ssc.MCCommitment StakeholderId)) mlInvMsg
+                msgLenLimitedTest @(R.ReqMsg (Tagged Ssc.MCCommitment StakeholderId)) mlReqMsg
                 msgLenLimitedTest @(R.MempoolMsg Ssc.MCCommitment) mlMempoolMsg
                 -- msgLenLimitedTest' @(C.MaxSize (R.DataMsg Ssc.MCCommitment))
                 --     (C.MaxSize . R.DataMsg <$> C.mcCommitmentMsgLenLimit)

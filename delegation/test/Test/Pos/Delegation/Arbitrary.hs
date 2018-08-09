@@ -1,8 +1,10 @@
+{-# LANGUAGE NoImplicitPrelude #-}
+
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- | Arbitrary instances for Delegation types.
 
-module Pos.Arbitrary.Delegation
+module Test.Pos.Delegation.Arbitrary
        ( genDlgPayload
        ) where
 
@@ -12,12 +14,13 @@ import qualified Data.HashMap.Strict as HM
 import           Test.QuickCheck (Arbitrary (..), Gen, listOf)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
-import           Pos.Arbitrary.Core ()
 import           Pos.Binary.Core ()
 import           Pos.Core (EpochIndex, HeavyDlgIndex (..))
-import           Pos.Crypto (HasProtocolMagic, ProtocolMagic, ProxySecretKey (..), createPsk,
-                             protocolMagic)
+import           Pos.Crypto (ProtocolMagic, ProxySecretKey (..), createPsk)
 import           Pos.Delegation.Types (DlgPayload (..), DlgUndo (..))
+
+import           Test.Pos.Core.Arbitrary ()
+import           Test.Pos.Crypto.Dummy (dummyProtocolMagic)
 
 genDlgPayload :: ProtocolMagic -> EpochIndex -> Gen DlgPayload
 genDlgPayload pm epoch =
@@ -26,10 +29,10 @@ genDlgPayload pm epoch =
     convert psk = (pskIssuerPk psk, psk)
     genPSK = createPsk pm <$> arbitrary <*> arbitrary <*> pure (HeavyDlgIndex epoch)
 
-instance HasProtocolMagic => Arbitrary DlgPayload where
-    arbitrary = arbitrary >>= genDlgPayload protocolMagic
+instance Arbitrary DlgPayload where
+    arbitrary = arbitrary >>= genDlgPayload dummyProtocolMagic
     shrink = genericShrink
 
-instance HasProtocolMagic => Arbitrary DlgUndo where
+instance Arbitrary DlgUndo where
     arbitrary = genericArbitrary
     shrink = genericShrink

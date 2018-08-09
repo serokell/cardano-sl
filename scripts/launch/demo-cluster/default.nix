@@ -5,12 +5,15 @@
 , runExplorer ? false
 , numCoreNodes ? 4
 , numRelayNodes ? 1
+, numImportedWallets ? 11
+, assetLockAddresses ? []
 , system ? builtins.currentSystem
 , pkgs ? import localLib.fetchNixPkgs { inherit system config; }
 , gitrev ? localLib.commitIdFromGitRepo ./../../../.git
 , ghcRuntimeArgs ? "-N2 -qg -A1m -I0 -T"
 , additionalNodeArgs ? ""
 , keepAlive ? true
+, disableClientAuth ? false
 }:
 
 with localLib;
@@ -19,16 +22,17 @@ let
   executables =  {
     corenode = "${iohkPkgs.cardano-sl-node-static}/bin/cardano-node-simple";
     wallet = "${iohkPkgs.cardano-sl-wallet-new}/bin/cardano-node";
-    integration-test = "${iohkPkgs.cardano-sl-wallet-new}/bin/cardano-integration-test";
+    integration-test = "${iohkPkgs.cardano-sl-wallet-new}/bin/wal-integr-test";
     keygen = "${iohkPkgs.cardano-sl-tools}/bin/cardano-keygen";
     explorer = "${iohkPkgs.cardano-sl-explorer-static}/bin/cardano-explorer";
   };
   demoClusterDeps = with pkgs; (with iohkPkgs; [ jq coreutils pkgs.curl gnused openssl cardano-sl-tools cardano-sl-wallet-new cardano-sl-node-static ]);
   walletConfig = {
-    inherit stateDir;
+    inherit stateDir disableClientAuth;
     topologyFile = walletTopologyFile;
+    environment = "demo";
   };
-  demoWallet = pkgs.callPackage ./../connect-to-cluster ({ inherit gitrev; debug = false; environment = "demo"; } // walletConfig);
+  demoWallet = pkgs.callPackage ./../connect-to-cluster ({ inherit gitrev; } // walletConfig);
   ifWallet = localLib.optionalString (runWallet);
   ifKeepAlive = localLib.optionalString (keepAlive);
   iohkPkgs = import ./../../.. { inherit config system pkgs gitrev; };
@@ -41,6 +45,8 @@ let
       fallbacks = 1;
     };
   });
+  assetLockFile = pkgs.writeText "asset-lock-file" (localLib.intersperse "\n" assetLockAddresses);
+  ifAssetLock = localLib.optionalString (assetLockAddresses != []);
   configFiles = pkgs.runCommand "cardano-config" {} ''
     mkdir -pv $out
     cd $out
@@ -91,7 +97,7 @@ in pkgs.writeScript "demo-cluster" ''
   echo "Launching a demo cluster..."
   for i in {1..${builtins.toString numCoreNodes}}
   do
-    node_args="--db-path ${stateDir}/core-db''${i} --rebuild-db --genesis-secret ''${i} --listen 127.0.0.1:300''${i} --json-log ${stateDir}/logs/node''${i}.json --logs-prefix ${stateDir}/logs --system-start $system_start --metrics +RTS -N2 -qg -A1m -I0 -T -RTS --node-id core''${i} --topology ${topologyFile} --configuration-file ${configFiles}/configuration.yaml"
+    node_args="--db-path ${stateDir}/core-db''${i} --rebuild-db --genesis-secret ''${i} --listen 127.0.0.1:300''${i} --json-log ${stateDir}/logs/node''${i}.json --logs-prefix ${stateDir}/logs --system-start $system_start --metrics +RTS -N2 -qg -A1m -I0 -T -RTS --node-id core''${i} --topology ${topologyFile} --configuration-file ${configFiles}/configuration.yaml ${ifAssetLock "--asset-lock-file ${assetLockFile}"}"
     echo Launching core node $i with args: $node_args
     cardano-node-simple $node_args &> /dev/null &
     core_pid[$i]=$!
@@ -134,19 +140,22 @@ in pkgs.writeScript "demo-cluster" ''
   done
   echo Blockchain Synced: $PERC%
   # import keys
-  echo "Importing poor HD keys/wallet..."
 
-  for i in {0..11}
-  do
-      echo "Importing key$i.sk ..."
-      curl https://localhost:8090/api/wallets/keys \
-      --cacert ${stateDir}/tls/client/ca.crt \
-      --cert ${stateDir}/tls/client/client.pem \
-      -X POST \
-      -H 'cache-control: no-cache' \
-      -H 'content-type: application/json' \
-      -d "\"${stateDir}/genesis-keys/generated-keys/poor/key$i.sk\"" | jq .
-  done
+  if [ ${builtins.toString numImportedWallets} -gt 0 ]
+  then
+    echo "Importing ${builtins.toString numImportedWallets} poor HD keys/wallet..."
+    for i in {0..${builtins.toString numImportedWallets}}
+    do
+        echo "Importing key$i.sk ..."
+        curl https://localhost:8090/api/wallets/keys \
+        --cacert ${stateDir}/tls/client/ca.crt \
+        --cert ${stateDir}/tls/client/client.pem \
+        -X POST \
+        -H 'cache-control: no-cache' \
+        -H 'content-type: application/json' \
+        -d "\"${stateDir}/genesis-keys/generated-keys/poor/key$i.sk\"" | jq .
+    done
+  fi
   ${ifKeepAlive ''
     sleep infinity
   ''}

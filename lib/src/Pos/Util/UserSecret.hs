@@ -54,7 +54,6 @@ import           Data.Default (Default (..))
 import qualified Data.Map as Map
 import qualified Data.Text.Buildable
 import           Formatting (Format, bprint, build, formatToString, later, (%))
-import           Pos.Arbitrary.Core ()
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeFull', deriveSimpleBi,
                                    encodeListLen, enforceSize, serialize')
 import           Pos.Core (Address, accountGenesisIndex, addressF, makeRootPubKeyAddress,
@@ -79,8 +78,6 @@ import           System.Wlog (WithLogger, logInfo)
 #endif
 import           Test.QuickCheck (Arbitrary (..))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
-
-import           Pos.Arbitrary.Core ()
 
 import           Test.Pos.Crypto.Arbitrary ()
 
