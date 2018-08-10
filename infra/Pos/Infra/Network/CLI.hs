@@ -17,6 +17,7 @@ module Pos.Infra.Network.CLI
        , listenNetworkAddressOption
        , ipv4ToNetworkAddress
        , intNetworkConfigOpts
+       , intNetworkConfigOpts'
        , launchStaticConfigMonitoring
          -- * Exported primarily for testing
        , readTopology
@@ -40,19 +41,17 @@ import qualified Network.DNS as DNS
 import qualified Network.Transport.TCP as TCP
 import qualified Options.Applicative as Opt
 import           Serokell.Util.OptParse (fromParsec)
-import           System.Wlog (LoggerNameBox, WithLogger, askLoggerName, logError,
-                              logNotice, usingLoggerName)
+import           System.Wlog (LoggerNameBox, WithLogger, askLoggerName, logError, logNotice,
+                              usingLoggerName)
 
-import qualified Pos.Infra.DHT.Real.Param as DHT (KademliaParams (..),
-                                                  MalformedDHTKey (..),
+import qualified Pos.Infra.DHT.Real.Param as DHT (KademliaParams (..), MalformedDHTKey (..),
                                                   fromYamlConfig)
 import           Pos.Infra.Network.DnsDomains (DnsDomains (..), NodeAddr (..))
 import           Pos.Infra.Network.Types (NodeId, NodeName (..))
 import qualified Pos.Infra.Network.Types as T
 import           Pos.Infra.Network.Yaml (NodeMetadata (..))
 import qualified Pos.Infra.Network.Yaml as Y
-import           Pos.Infra.Util.TimeWarp (NetworkAddress, addrParser,
-                                          addrParserNoWildcard,
+import           Pos.Infra.Util.TimeWarp (NetworkAddress, addrParser, addrParserNoWildcard,
                                           addressToNodeId)
 
 #ifdef POSIX
@@ -280,10 +279,22 @@ intNetworkConfigOpts ::
        )
     => NetworkConfigOpts
     -> m (T.NetworkConfig DHT.KademliaParams)
-intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
+intNetworkConfigOpts = intNetworkConfigOpts' defaultTopology
+
+-- | Version of 'intNetworkConfigOpts' with overridable default topology.
+intNetworkConfigOpts' ::
+       forall m.
+       ( WithLogger m
+       , MonadIO m
+       , MonadCatch m
+       )
+    => Y.Topology
+    -> NetworkConfigOpts
+    -> m (T.NetworkConfig DHT.KademliaParams)
+intNetworkConfigOpts' defaultTopology' cfg@NetworkConfigOpts{..} = do
     parsedTopology <-
         case ncoTopology of
-            Nothing -> pure defaultTopology
+            Nothing -> pure defaultTopology'
             Just fp -> liftIO $ readTopology fp
     (ourTopology, tcpAddr) <- case parsedTopology of
         Y.TopologyStatic{..} -> do
