@@ -261,7 +261,6 @@ readUserSecret path = do
 -- If the file does not exist/is empty, returns empty user secret
 peekUserSecret :: (MonadIO m, WithLogger m) => FilePath -> m UserSecret
 peekUserSecret path = do
-    logInfo "initalizing user secret"
     initializeUserSecret path
     takeReadLock path $ do
         content <- eitherToThrow . first UserSecretDecodingError .
