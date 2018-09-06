@@ -9,6 +9,7 @@
 
 module Pos.Util.UserSecret
        ( UserSecret
+       , isEmptyUserSecret
        , usKeys
        , usVss
        , usWallets
@@ -105,6 +106,9 @@ data UserSecret = UserSecret
     } deriving (Generic)
 
 deriving instance Eq EncryptedSecretKey => Eq UserSecret
+
+isEmptyUserSecret :: UserSecret -> Bool
+isEmptyUserSecret us = null (_usWallets us)
 
 instance Arbitrary (Maybe FileLock) => Arbitrary UserSecret where
     arbitrary = genericArbitrary
@@ -257,7 +261,6 @@ readUserSecret path = do
 -- If the file does not exist/is empty, returns empty user secret
 peekUserSecret :: (MonadIO m, WithLogger m) => FilePath -> m UserSecret
 peekUserSecret path = do
-    logInfo "initalizing user secret"
     initializeUserSecret path
     takeReadLock path $ do
         content <- eitherToThrow . first UserSecretDecodingError .

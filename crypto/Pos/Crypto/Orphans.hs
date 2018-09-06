@@ -50,18 +50,6 @@ instance Bi Ed25519.Signature where
     encode (Ed25519.Signature s) = encode s
     decode = Ed25519.Signature <$> decode
 
-instance Eq CC.XPub where
-    a == b = CC.unXPub a == CC.unXPub b
-
-instance Ord CC.XPub where
-    compare = comparing CC.unXPub
-
-instance Show CC.XPub where
-    show = show . CC.unXPub
-
-instance Hashable CC.XPub where
-    hashWithSalt n = Hashable.hashWithSalt n . CC.unXPub
-
 ----------------------------------------------------------------------------
 -- Bi instances for Scrape
 ----------------------------------------------------------------------------
