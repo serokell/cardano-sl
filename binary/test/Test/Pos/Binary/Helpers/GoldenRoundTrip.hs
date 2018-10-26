@@ -1,8 +1,13 @@
 module Test.Pos.Binary.Helpers.GoldenRoundTrip
        ( goldenTestBi
+       , compareHexDump
+       , discoverGolden
+       , discoverRoundTrip
        , roundTripsBiShow
        , roundTripsBiBuildable
-       , compareHexDump
+       , roundTripsAesonShow
+       , roundTripsAesonBuildable
+       , eachOf
        ) where
 
 
@@ -11,16 +16,16 @@ import           Universum
 import           Control.Monad.IO.Class (liftIO)
 import qualified Data.ByteString.Lazy.Char8 as BS
 import           Data.Text.Buildable (Buildable (..))
-import           Hedgehog (MonadTest, Property, eval, property, success,
-                     tripping, withTests, (===))
+import           Hedgehog (MonadTest, Property, eval, property, success, tripping, withTests, (===))
 import           Hedgehog.Internal.Property (failWith)
-import           Hedgehog.Internal.Show (LineDiff, lineDiff, mkValue,
-                     renderLineDiff, showPretty)
+import           Hedgehog.Internal.Show (LineDiff, lineDiff, mkValue, renderLineDiff, showPretty)
 
 import           Pos.Binary.Class (Bi (..), decodeFull, serialize)
 import qualified Prelude
 import qualified Test.Pos.Util.Base16 as B16
-import           Test.Pos.Util.Tripping (trippingBuildable)
+import           Test.Pos.Util.Golden (discoverGolden, eachOf)
+import           Test.Pos.Util.Tripping (discoverRoundTrip, roundTripsAesonBuildable,
+                                         roundTripsAesonShow, trippingBuildable)
 import           Text.Show.Pretty (Value (..))
 
 type HexDump = LByteString

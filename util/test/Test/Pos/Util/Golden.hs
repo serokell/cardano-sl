@@ -11,8 +11,8 @@ import           Data.Serialize (runGetLazy, runPutLazy)
 import           Data.Text.Buildable (build)
 import qualified Data.Text.Lazy as LT (unpack)
 import           Data.Text.Lazy.Builder (toLazyText)
-import           Hedgehog (Gen, Group, Property, PropertyT, TestLimit,
-                     discoverPrefix, forAll, property, withTests, (===))
+import           Hedgehog (Gen, Group, Property, PropertyT, TestLimit, discoverPrefix, forAll,
+                           property, withTests, (===))
 import           Hedgehog.Internal.Property (failWith)
 import           Hedgehog.Internal.TH (TExpQ)
 import           Language.Haskell.TH (ExpQ, Q, loc_filename, runIO)
