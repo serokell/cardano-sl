@@ -53,12 +53,13 @@ module Node (
     ) where
 
 import           Control.Concurrent.STM
-import           Control.Exception (Exception (..), SomeException, catch, mask, throwIO)
+import           Control.Exception (Exception (..), SomeException, bracket_, catch, mask, throwIO)
 import           Control.Monad (unless, when)
 import qualified Data.ByteString as BS
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 import           Data.Proxy (Proxy (..))
+import           Data.Semigroup ((<>))
 import qualified Data.Text as T
 import           Data.Typeable (Typeable)
 import           Data.Word (Word32)
@@ -145,10 +146,11 @@ nodeConverse
        ( Serializable packing peerData
        , Serializable packing MessageCode
        )
-    => LL.Node packing peerData
+    => Trace IO (Severity, T.Text)
+    -> LL.Node packing peerData
     -> Packing packing IO
     -> Converse packing peerData
-nodeConverse nodeUnit packing = Converse nodeConverse
+nodeConverse logTrace nodeUnit packing = Converse nodeConverse
   where
 
     mtu = LL.nodeMtu (LL.nodeEnvironment nodeUnit)
@@ -163,9 +165,9 @@ nodeConverse nodeUnit packing = Converse nodeConverse
             Conversation (converse :: ConversationActions snd rcv -> IO t) -> do
                 let msgCode = messageCode (Proxy :: Proxy snd)
                     cactions :: ConversationActions snd rcv
-                    cactions = nodeConversationActions nodeUnit nodeId packing inchan outchan
+                    cactions = nodeConversationActions logTrace nodeUnit nodeId packing inchan outchan
                 pack packing msgCode >>= LL.writeMany mtu outchan
-                converse cactions
+                ddd logTrace "converse" (converse cactions)
 
 
 -- | Conversation actions for a given peer and in/out channels.
@@ -174,13 +176,14 @@ nodeConversationActions
        ( Serializable packing snd
        , Serializable packing rcv
        )
-    => LL.Node packing peerData
+    => Trace IO (Severity, T.Text)
+    -> LL.Node packing peerData
     -> LL.NodeId
     -> Packing packing IO
     -> ChannelIn
     -> ChannelOut
     -> ConversationActions snd rcv
-nodeConversationActions node _ packing inchan outchan =
+nodeConversationActions _ node _ packing inchan outchan =
     ConversationActions nodeSend nodeRecv nodeSendRaw
     where
 
@@ -219,6 +222,11 @@ manualNodeEndPoint ep _ = LL.NodeEndPoint {
       newNodeEndPoint = pure $ Right ep
     , closeNodeEndPoint = NT.closeEndPoint
     }
+
+ddd :: Trace IO (Severity, T.Text) -> T.Text -> IO a -> IO a
+ddd oq astr = bracket_
+    (traceWith oq (Debug, "before " <> astr))
+    (traceWith oq (Debug, "after " <> astr))
 
 -- | Spin up a node. You must give a function to create listeners given the
 --   'NodeId', and an action to do given the 'NodeId' and sending actions.
@@ -261,7 +269,7 @@ node logTrace mkEndPoint mkReceiveDelay mkConnectDelay prng packing peerData nod
               listenerIndices :: peerData -> ListenerIndex packing peerData
               listenerIndices = fmap (fst . makeListenerIndex) mkListeners
               converse :: Converse packing peerData
-              converse = nodeConverse llnode packing
+              converse = nodeConverse logTrace llnode packing
         ; llnode <- LL.startNode
               logTrace
               packing
@@ -277,7 +285,7 @@ node logTrace mkEndPoint mkReceiveDelay mkConnectDelay prng packing peerData nod
     -- Any exception in there kills the node, whereas normal termination
     -- gracefully stops the node. In the latter case, the node will wait for
     -- any running network handlers to finish.
-    mask $ \restore -> do
+    mask $ \restore -> ddd logTrace "node" $ do
         t <- restore (act converse) `catch` \e -> do
             logException e
             LL.killNode llnode
@@ -313,7 +321,7 @@ node logTrace mkEndPoint mkReceiveDelay mkConnectDelay prng packing peerData nod
                 let listener = M.lookup msgCode listenerIndex
                 case listener of
                     Just (Listener action) ->
-                        let cactions = nodeConversationActions nodeUnit peerId packing inchan outchan
+                        let cactions = nodeConversationActions logTrace nodeUnit peerId packing inchan outchan
                         in  action peerData peerId cactions
                     Nothing -> traceWith logTrace (Error, sformat ("no listener for "%shown) msgCode)
 

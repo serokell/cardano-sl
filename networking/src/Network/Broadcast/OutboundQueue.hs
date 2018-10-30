@@ -23,10 +23,10 @@
 {-# LANGUAGE OverloadedStrings         #-}
 {-# LANGUAGE PolyKinds                 #-}
 {-# LANGUAGE RankNTypes                #-}
+{-# LANGUAGE RecursiveDo               #-}
 {-# LANGUAGE ScopedTypeVariables       #-}
 {-# LANGUAGE StandaloneDeriving        #-}
 {-# LANGUAGE TupleSections             #-}
-{-# LANGUAGE RecursiveDo               #-}
 {-# OPTIONS_GHC -fno-warn-redundant-constraints #-}
 
 module Network.Broadcast.OutboundQueue (
@@ -85,8 +85,8 @@ module Network.Broadcast.OutboundQueue (
 import           Control.Concurrent
 import           Control.Concurrent.Async
 import           Control.Concurrent.STM
-import           Control.Exception (Exception, SomeException, catch, throwIO, displayException,
-                                    finally, mask_)
+import           Control.Exception (Exception, SomeException, bracket_, catch, displayException,
+                                    finally, mask_, throwIO)
 import           Control.Lens
 import           Control.Monad
 import           Data.Either (rights)
@@ -94,7 +94,7 @@ import           Data.Foldable (fold)
 import           Data.List (intercalate, sortBy)
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
-import           Data.Maybe (fromMaybe, maybeToList, mapMaybe)
+import           Data.Maybe (fromMaybe, mapMaybe, maybeToList)
 import           Data.Monoid ((<>))
 import           Data.Ord (comparing)
 import           Data.Set (Set)
@@ -108,11 +108,16 @@ import qualified System.Metrics as Monitoring
 import           System.Metrics.Counter (Counter)
 import qualified System.Metrics.Counter as Counter
 
-import           Pos.Util.Trace (Trace, traceWith, Severity (..))
+import           Pos.Util.Trace (Severity (..), Trace, traceWith)
 
 import           Network.Broadcast.OutboundQueue.ConcurrentMultiQueue (MultiQueue)
 import qualified Network.Broadcast.OutboundQueue.ConcurrentMultiQueue as MQ
 import           Network.Broadcast.OutboundQueue.Types
+
+ddd :: OutboundQ msg nid buck -> Text -> IO a -> IO a
+ddd oq astr = bracket_
+    (logDebugOQ oq ("before " <> astr))
+    (logDebugOQ oq ("after " <> astr))
 
 {-------------------------------------------------------------------------------
   Precedence levels
@@ -1013,15 +1018,17 @@ intDequeue outQ@OutQ{..} threadRegistry@TR{} sendMsg = do
             MaxMsgPerSec n -> do
               let delay = 1000000 `div` n
               applyMVar_ qRateLimited $ Set.insert (packetDestId p)
-              void $ forkThread threadRegistry $ \unmask -> unmask $
+              void $ {- ddd outQ "forkThread_1" $ -} forkThread threadRegistry $ \unmask -> {- ddd outQ "forkThread_111" $ -} unmask $
                 (threadDelay delay) `finally` (do
                   applyMVar_ qRateLimited $ Set.delete (packetDestId p)
                   poke qSignal)
 
-          theThread <- forkThread threadRegistry $ \unmask -> do
+          theThread <- ddd outQ "forkThread_2" $ forkThread threadRegistry $ \unmask -> ddd outQ "forkThread_222" $ do
             logDebugOQ outQ $ debugSending p
 
-            finallyWithException (unmask $ sendMsg (packetPayload p) (packetDestId p)) $ \ma -> do
+            finallyWithException
+                (ddd outQ "forkThread_222_int" $ unmask $ sendMsg (packetPayload p) (packetDestId p))
+                $ \ma -> ddd outQ "forkThread_222_cleanup" $ do
 
               -- Reduce the in-flight count ..
               setInFlightFor p (\n -> n - 1) qInFlight
@@ -1148,8 +1155,8 @@ enqueueSync' outQ msgType msg = do
     waitForDequeue (nid, tvar) = do
       it <- readTVar tvar
       case it of
-        PacketEnqueued -> retry
-        PacketAborted -> pure (nid, Nothing)
+        PacketEnqueued        -> retry
+        PacketAborted         -> pure (nid, Nothing)
         PacketDequeued thread -> pure (nid, Just thread)
 
 -- | Queue a message and wait for it to have been sent
@@ -1291,20 +1298,23 @@ type SendMsg msg nid = forall a. msg a -> nid -> IO a
 -- function does not return unless told to terminate using 'waitShutdown'.
 dequeueThread :: forall msg nid buck.
                  OutboundQ msg nid buck -> SendMsg msg nid -> IO ()
-dequeueThread outQ@OutQ{..} sendMsg = withThreadRegistry $ \threadRegistry ->
+dequeueThread outQ@OutQ{..} sendMsg = ddd outQ "with threadRegistry" $ withThreadRegistry $ \threadRegistry ->
     let loop :: IO ()
         loop = do
-          mCtrlMsg <- intDequeue outQ threadRegistry sendMsg
+          mCtrlMsg <- ddd outQ "intDequeue" $ intDequeue outQ threadRegistry sendMsg
           case mCtrlMsg of
-            Nothing      -> loop
+            Nothing      -> logDebugOQ outQ "Nothing" >> loop
             Just ctrlMsg -> do
+              logDebugOQ outQ "Just"
               waitAllThreads threadRegistry
               case ctrlMsg of
-                Shutdown ack -> do putMVar ack ()
-                Flush    ack -> do putMVar ack ()
+                Shutdown ack -> do logDebugOQ outQ "Shutdown"
+                                   putMVar ack ()
+                Flush    ack -> do logDebugOQ outQ "Flush"
+                                   putMVar ack ()
                                    loop
 
-    in loop
+    in ddd outQ "without threadRegistry" loop
 
 {-------------------------------------------------------------------------------
   Controlling the dequeue thread
