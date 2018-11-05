@@ -10,7 +10,7 @@ import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, build, int, (%))
 
-import           Pos.Binary.Class (Bi, decode, encode)
+import           Pos.Binary.Class (Bi (..))
 import qualified Pos.Binary.Class as Bi
 import           Pos.Crypto.Signing (PublicKey, RedeemPublicKey)
 
@@ -114,6 +114,7 @@ instance Bi AddrType where
             1 -> ATScript
             2 -> ATRedeem
             tag -> ATUnknown tag
+    encodedSizeExpr size _ = encodedSizeExpr size (Proxy @Word8)
 
 -- | Convert 'AddrSpendingData' to the corresponding 'AddrType'.
 addrSpendingDataToType :: AddrSpendingData -> AddrType

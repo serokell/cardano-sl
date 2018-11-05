@@ -12,7 +12,7 @@ import qualified Data.HashSet as HS
 import           Serokell.Util (allDistinct)
 
 import           Pos.Binary.Class (Bi (..), Cons (..), Decoder, Encoding, Field (..),
-                                   deriveSimpleBi, encodeListLen, enforceSize)
+                                   deriveIndexedBi, encodeListLen, enforceSize)
 import           Pos.Binary.Core.Slotting ()
 import           Pos.Core.Ssc (Commitment (..), CommitmentsMap (..), Opening (..), OpeningsMap,
                                SharesMap, SignedCommitment, SscPayload (..), SscProof (..),
@@ -102,30 +102,30 @@ decodeCommitments = do
 -- TH-generated instances go to the end of the file
 ----------------------------------------------------------------------------
 
-deriveSimpleBi ''SscPayload [
+deriveIndexedBi ''SscPayload [
     Cons 'CommitmentsPayload [
-        Field [| spComms    :: CommitmentsMap     |],
-        Field [| spVss      :: VssCertificatesMap |] ],
+        Field [| 0 :: CommitmentsMap     |],
+        Field [| 1 :: VssCertificatesMap |] ],
     Cons 'OpeningsPayload [
-        Field [| spOpenings :: OpeningsMap        |],
-        Field [| spVss      :: VssCertificatesMap |] ],
+        Field [| 0 :: OpeningsMap        |],
+        Field [| 1 :: VssCertificatesMap |] ],
     Cons 'SharesPayload [
-        Field [| spShares   :: SharesMap          |],
-        Field [| spVss      :: VssCertificatesMap |] ],
+        Field [| 0 :: SharesMap          |],
+        Field [| 1 :: VssCertificatesMap |] ],
     Cons 'CertificatesPayload [
-        Field [| spVss      :: VssCertificatesMap |] ]
+        Field [| 0 :: VssCertificatesMap |] ]
     ]
 
-deriveSimpleBi ''SscProof [
+deriveIndexedBi ''SscProof [
     Cons 'CommitmentsProof [
-        Field [| sprComms    :: Hash CommitmentsMap |],
-        Field [| sprVss      :: VssCertificatesHash |] ],
+        Field [| 0 :: Hash CommitmentsMap |],
+        Field [| 1 :: VssCertificatesHash |] ],
     Cons 'OpeningsProof [
-        Field [| sprOpenings :: Hash OpeningsMap    |],
-        Field [| sprVss      :: VssCertificatesHash |] ],
+        Field [| 0 :: Hash OpeningsMap    |],
+        Field [| 1 :: VssCertificatesHash |] ],
     Cons 'SharesProof [
-        Field [| sprShares   :: Hash SharesMap      |],
-        Field [| sprVss      :: VssCertificatesHash |] ],
+        Field [| 0 :: Hash SharesMap      |],
+        Field [| 1 :: VssCertificatesHash |] ],
     Cons 'CertificatesProof [
-        Field [| sprVss      :: VssCertificatesHash |] ]
+        Field [| 0 :: VssCertificatesHash |] ]
     ]

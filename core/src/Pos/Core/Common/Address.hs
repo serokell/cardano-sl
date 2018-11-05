@@ -61,7 +61,7 @@ import qualified Data.Text.Buildable as Buildable
 import           Formatting (Format, bprint, build, builder, later, (%))
 import           Serokell.Data.Memory.Units (Byte)
 
-import           Pos.Binary.Class (Bi, biSize)
+import           Pos.Binary.Class (Bi, biSize, encodedCrcProtectedSizeExpr)
 import qualified Pos.Binary.Class as Bi
 import           Pos.Core.Common.Coin ()
 import           Pos.Core.Constants (accountGenesisIndex, wAddressGenesisIndex)
@@ -119,6 +119,10 @@ instance Bi Address where
         (addrRoot, addrAttributes, addrType) <- Bi.decodeCrcProtected
         let res = Address {..}
         pure res
+    encodedSizeExpr size pxy =
+        encodedCrcProtectedSizeExpr size ( (,,) <$> (addrRoot       <$> pxy)
+                                                <*> (addrAttributes <$> pxy)
+                                                <*> (addrType       <$> pxy) )
 
 instance Hashable Address where
     hashWithSalt s = hashWithSalt s . Bi.serialize

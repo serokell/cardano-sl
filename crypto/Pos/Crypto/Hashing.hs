@@ -58,7 +58,7 @@ import qualified Prelude
 import qualified Serokell.Util.Base16 as B16
 import           System.IO.Unsafe (unsafeDupablePerformIO)
 
-import           Pos.Binary.Class (Bi (..), Raw)
+import           Pos.Binary.Class (Bi (..), Raw, withWordSize)
 import qualified Pos.Binary.Class as Bi
 import           Pos.Util.Util (parseJSONWithRead, toAesonError, toCborError)
 
@@ -138,6 +138,9 @@ instance (Typeable algo, Typeable a, HashAlgorithm algo) => Bi (AbstractHash alg
         toCborError $ case Hash.digestFromByteString bs of
             Nothing -> Left "AbstractHash.decode: invalid digest"
             Just x  -> Right (AbstractHash x)
+    encodedSizeExpr _ _ =
+        let realSz = hashDigestSize (error "unused, I hope!" :: algo)
+        in fromInteger (toInteger (withWordSize realSz + realSz))
 
 hashDigestSize' :: forall algo . HashAlgorithm algo => Int
 hashDigestSize' = hashDigestSize @algo

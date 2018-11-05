@@ -29,6 +29,7 @@ import           Control.Monad.Except (MonadError (throwError))
 import           Data.Data (Data)
 import qualified Data.Text.Buildable
 import           Formatting (Format, bprint, build, int, (%))
+import           Pos.Binary.Class (Bi (..))
 
 import           Pos.Util.Util (leftToPanic)
 
@@ -43,6 +44,11 @@ instance Buildable Coin where
 instance Bounded Coin where
     minBound = Coin 0
     maxBound = Coin maxCoinVal
+
+instance Bi Coin where
+    encode = encode . unsafeGetCoin
+    decode = Coin <$> decode
+    encodedSizeExpr size pxy = size (unsafeGetCoin <$> pxy)
 
 -- | Maximal possible value of 'Coin'.
 maxCoinVal :: Word64
