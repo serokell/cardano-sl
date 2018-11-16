@@ -61,6 +61,7 @@ import           Pos.Core (Address, accountGenesisIndex, addressF, makeRootPubKe
                            wAddressGenesisIndex)
 import qualified Pos.Core as Core
 import           Pos.Core.Common (addressHash)
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
 import           Pos.Crypto (EncryptedSecretKey, SecretKey, VssKeyPair, encToPublic)
 import qualified Pos.Crypto as Core
 import           Pos.Util (eitherToThrow)
@@ -339,11 +340,17 @@ instance Arbitrary WalletUserSecret where
 
 makeLenses ''WalletUserSecret
 
+fixedNM :: NetworkMagic
+fixedNM = NMNothing
+
 instance Buildable WalletUserSecret where
     build WalletUserSecret{..} =
         bprint ("{ root = "%addressF%", set name = "%build%
                 ", wallets = "%pairsF%", accounts = "%pairsF%" }")
-        (makeRootPubKeyAddress $ encToPublic _wusRootKey)
+        -- TODO mhueschen |
+        -- TODO @intricate: Will probably have to add NetworkMagic to WalletUserSecret
+        -- instead of using NMNothing here :/
+        (makeRootPubKeyAddress fixedNM $ encToPublic _wusRootKey)
         _wusWalletName
         _wusAccounts
         _wusAddrs
