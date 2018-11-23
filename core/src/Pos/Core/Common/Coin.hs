@@ -18,6 +18,7 @@ module Pos.Core.Common.Coin
        , unsafeAddCoin
        , unsafeSubCoin
        , unsafeMulCoin
+       , addCoin
        , subCoin
        , divCoin
        ) where
@@ -81,6 +82,15 @@ sumCoins = sum . map coinToInteger . toList
 coinToInteger :: Coin -> Integer
 coinToInteger = toInteger . unsafeGetCoin
 {-# INLINE coinToInteger #-}
+
+-- Addition of coins. Returns 'Nothing' in case of overflow.
+addCoin :: Coin -> Coin -> Maybe Coin
+addCoin (unsafeGetCoin -> a) (unsafeGetCoin -> b)
+    | res >= a && res >= b && res <= unsafeGetCoin (maxBound @Coin) = Just (Coin res)
+    | otherwise = Nothing
+  where
+    res = a+b
+{-# INLINE addCoin #-}
 
 -- | Only use if you're sure there'll be no overflow.
 unsafeAddCoin :: Coin -> Coin -> Coin

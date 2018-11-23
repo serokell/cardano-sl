@@ -23,8 +23,7 @@ import           Pos.Core (HeaderHash, ProxySKHeavy, StakeholderId)
 import           Pos.Core.Block (Block, BlockHeader)
 import           Pos.Core.Chrono (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Core.Txp (TxId)
-import           Pos.Core.Update (BlockVersionData, UpId, UpdateProposal,
-                     UpdateVote, VoteId)
+import           Pos.Core.Update (BlockVersionData, UpId, UpdateProposal, UpdateVote, VoteId)
 import           Pos.DB.Class (SerializedBlock)
 import           Pos.Security.Params (SecurityParams (..))
 import           Pos.Ssc.Message (MCCommitment, MCOpening, MCShares, MCVssCertificate)
@@ -41,14 +40,14 @@ data Logic m = Logic
     , getBlockHeader     :: HeaderHash -> m (Maybe BlockHeader)
       -- TODO CSL-2089 use conduits in this and the following methods
       -- | Retrieve block header hashes from specified interval.
-    , getHashesRange     :: Maybe Word -- ^ Optional limit on how many to bring in.
+    , getHashesRange     :: Maybe Word -- Optional limit on how many to bring in.
                          -> HeaderHash
                          -> HeaderHash
                          -> m (Either GetHashesRangeError (OldestFirst NE HeaderHash))
       -- | Interface for 'getHeadersFromManyTo'. Retrieves blocks from
       -- the checkpoints to some particular point (or tip, if
       -- 'Nothing').
-    , getBlockHeaders    :: Maybe Word -- ^ Optional limit on how many to bring in.
+    , getBlockHeaders    :: Maybe Word -- Optional limit on how many to bring in.
                          -> NonEmpty HeaderHash
                          -> Maybe HeaderHash
                          -> m (Either GetHeadersFromManyToError (NewestFirst NE BlockHeader))

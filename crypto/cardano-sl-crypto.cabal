@@ -49,7 +49,7 @@ library
                      , cardano-sl-util
                      , cborg
                      , cryptonite
-                     , cryptonite-openssl
+                     , cryptonite-openssl >= 0.7
                      , data-default
                      , ed25519
                      , formatting

@@ -319,7 +319,7 @@ multilineBounds maxSize = F.later formatList
 
 -- | Catch and log an exception, then rethrow it
 logException :: LoggerName -> IO a -> IO a
-logException name = E.handleAsync (\e -> handler e >> E.throw e)
+logException name action = E.withException action handler
   where
     handler :: E.SomeException -> IO ()
     handler exc = do

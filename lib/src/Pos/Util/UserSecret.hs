@@ -8,19 +8,11 @@
 #endif
 
 module Pos.Util.UserSecret
-       ( WalletUserSecret (..)
-       , wusRootKey
-       , wusWalletName
-       , wusAccounts
-       , wusAddrs
-       , accountGenesisIndex
-       , wAddressGenesisIndex
-       , mkGenesisWalletUserSecret
-
-       , UserSecret
+       ( UserSecret
+       , isEmptyUserSecret
        , usKeys
        , usVss
-       , usWallet
+       , usWallets
        , usPrimKey
        , HasUserSecret(..)
        , getUSPath
@@ -34,16 +26,45 @@ module Pos.Util.UserSecret
 
        , UserSecretDecodingError (..)
        , ensureModeIs600
+
+       -- * Legacy
+       , WalletUserSecret (..)
+       , wusRootKey
+       , wusWalletName
+       , wusAccounts
+       , wusAddrs
+       , accountGenesisIndex
+       , wAddressGenesisIndex
+       , mkGenesisWalletUserSecret
+
+       , UserSecret0
+       , usKeys0
+       , usVss0
+       , usWallet0
+       , usPrimKey0
+       , usLock0
+       , usPath0
        ) where
 
 import           Universum hiding (keys)
 
 import           Control.Exception.Safe (onException, throwString)
-import           Control.Lens (makeLenses, to)
+import           Control.Lens (lens, makeLenses, to, (%=))
 import qualified Data.ByteString as BS
 import           Data.Default (Default (..))
+import qualified Data.Map as Map
 import qualified Data.Text.Buildable
 import           Formatting (Format, bprint, build, formatToString, later, (%))
+import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeFull', deriveSimpleBi,
+                                   encodeListLen, enforceSize, serialize')
+import           Pos.Core (Address, accountGenesisIndex, addressF, makeRootPubKeyAddress,
+                           wAddressGenesisIndex)
+import qualified Pos.Core as Core
+import           Pos.Core.Common (addressHash)
+import           Pos.Core.NetworkMagic (NetworkMagic (..))
+import           Pos.Crypto (EncryptedSecretKey, SecretKey, VssKeyPair, encToPublic)
+import qualified Pos.Crypto as Core
+import           Pos.Util (eitherToThrow)
 import qualified Prelude
 import           Serokell.Util.Text (listJson)
 import           System.Directory (doesFileExist)
@@ -53,19 +74,12 @@ import           System.FileLock (FileLock, SharedExclusive (..), lockFile, unlo
 import           System.FilePath (takeDirectory, takeFileName)
 import           System.IO (hClose, openBinaryTempFile)
 #ifdef POSIX
-import           System.Wlog (WithLogger, logInfo, logWarning)
+import           System.Wlog (WithLogger, logWarning)
 #else
-import           System.Wlog (WithLogger, logInfo)
+import           System.Wlog (WithLogger)
 #endif
 import           Test.QuickCheck (Arbitrary (..))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
-
-import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeFull', deriveSimpleBi,
-                                   encodeListLen, enforceSize, serialize')
-import           Pos.Core (Address, accountGenesisIndex, addressF, makeRootPubKeyAddress,
-                           wAddressGenesisIndex)
-import           Pos.Core.NetworkMagic (NetworkMagic (..))
-import           Pos.Crypto (EncryptedSecretKey, SecretKey, VssKeyPair, encToPublic)
 
 import           Test.Pos.Crypto.Arbitrary ()
 
@@ -78,74 +92,45 @@ import qualified System.Posix.Types as PSX (FileMode)
 -- Because of the Formatting import
 {-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
 
--- | Describes HD wallets keyfile content
-data WalletUserSecret = WalletUserSecret
-    { _wusRootKey    :: EncryptedSecretKey  -- ^ root key of wallet set
-    , _wusWalletName :: Text                -- ^ name of wallet
-    , _wusAccounts   :: [(Word32, Text)]    -- ^ accounts coordinates and names
-    , _wusAddrs      :: [(Word32, Word32)]  -- ^ addresses coordinates
-    } deriving (Show, Generic)
-
-deriving instance Eq EncryptedSecretKey => Eq WalletUserSecret
-
-instance Arbitrary WalletUserSecret where
-    arbitrary = genericArbitrary
-    shrink = genericShrink
-
-makeLenses ''WalletUserSecret
-
-fixedNM :: NetworkMagic
-fixedNM = NMNothing
-
-instance Buildable WalletUserSecret where
-    build WalletUserSecret{..} =
-        bprint ("{ root = "%addressF%", set name = "%build%
-                ", wallets = "%pairsF%", accounts = "%pairsF%" }")
-        -- TODO mhueschen |
-        -- TODO @intricate: Will probably have to add NetworkMagic to WalletUserSecret
-        -- instead of using NMNothing here :/
-        (makeRootPubKeyAddress fixedNM $ encToPublic _wusRootKey)
-        _wusWalletName
-        _wusAccounts
-        _wusAddrs
-      where
-        pairsF :: (Buildable a, Buildable b) => Format r ([(a, b)] -> r)
-        pairsF = later $ mconcat . map (uncurry $ bprint ("("%build%", "%build%")"))
-
-deriveSimpleBi ''WalletUserSecret [
-    Cons 'WalletUserSecret [
-        Field [| _wusRootKey    :: EncryptedSecretKey |],
-        Field [| _wusWalletName :: Text               |],
-        Field [| _wusAccounts   :: [(Word32, Text)]   |],
-        Field [| _wusAddrs      :: [(Word32, Word32)] |]
-    ]]
-
-mkGenesisWalletUserSecret :: EncryptedSecretKey -> WalletUserSecret
-mkGenesisWalletUserSecret _wusRootKey = do
-    let _wusWalletName = "Genesis wallet"
-        _wusAccounts   = [(accountGenesisIndex, "Genesis account")]
-        _wusAddrs      = [(accountGenesisIndex, wAddressGenesisIndex)]
-    WalletUserSecret{..}
-
+----------------------------------------------------------------------------
+-- UserSecret
+----------------------------------------------------------------------------
 
 -- | User secret data. Includes secret keys only for now (not
 -- including auxiliary @_usPath@).
 data UserSecret = UserSecret
-    { _usKeys    :: [EncryptedSecretKey]
-    , _usPrimKey :: Maybe SecretKey
+    { _usPrimKey :: Maybe SecretKey
     , _usVss     :: Maybe VssKeyPair
-    , _usWallet  :: Maybe WalletUserSecret
+    , _usWallets :: Map (Core.AddressHash Core.PublicKey) EncryptedSecretKey
     , _usPath    :: FilePath
     , _usLock    :: Maybe FileLock
     } deriving (Generic)
 
 deriving instance Eq EncryptedSecretKey => Eq UserSecret
 
+isEmptyUserSecret :: UserSecret -> Bool
+isEmptyUserSecret us = null (_usWallets us)
+
 instance Arbitrary (Maybe FileLock) => Arbitrary UserSecret where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
 makeLenses ''UserSecret
+
+addSecret
+    :: EncryptedSecretKey
+    -> Map (Core.AddressHash Core.PublicKey) EncryptedSecretKey
+    -> Map (Core.AddressHash Core.PublicKey) EncryptedSecretKey
+addSecret esk = Map.insert (addressHash $ encToPublic esk) esk
+
+usKeys :: Lens' UserSecret [EncryptedSecretKey]
+usKeys = lens (Map.elems . _usWallets) (\us eskList -> execState (addEskList eskList) us)
+  where
+    addEskList :: [EncryptedSecretKey] -> State UserSecret ()
+    addEskList [] = return ()
+    addEskList (e:es) = do
+        usWallets %= (addSecret e)
+        addEskList es
 
 class HasUserSecret ctx where
     -- if you're going to mock this TVar, look how it's done for peer state.
@@ -155,12 +140,11 @@ class HasUserSecret ctx where
 instance Bi Address => Show UserSecret where
     show UserSecret {..} =
         formatToString
-            ("UserSecret { _usKeys = "%listJson%", _usVss = "%build%
-             ", _usPath = "%build%", _usWallet = "%build%"}")
-            _usKeys
+            ("UserSecret { _usVss = "%build%
+             ", _usPath = "%build%", _usWallets = "%listJson%"}")
             _usVss
             _usPath
-            _usWallet
+            _usWallets
 
 newtype UserSecretDecodingError = UserSecretDecodingError Text
     deriving (Show)
@@ -189,26 +173,23 @@ simpleUserSecret :: SecretKey -> FilePath -> UserSecret
 simpleUserSecret sk fp = def & usPrimKey .~ Just sk & usPath .~ fp
 
 instance Default UserSecret where
-    def = UserSecret [] Nothing Nothing Nothing "" Nothing
+    def = UserSecret Nothing Nothing Map.empty "" Nothing
 
 -- | It's not network/system-related, so instance shouldn't be under
 -- @Pos.Binary.*@.
 instance Bi UserSecret where
   encode us = encodeListLen 4 <> encode (_usVss us) <>
                                       encode (_usPrimKey us) <>
-                                      encode (_usKeys us) <>
-                                      encode (_usWallet us)
+                                      encode (_usWallets us)
   decode = do
     enforceSize "UserSecret" 4
     vss  <- decode
     pkey <- decode
-    keys <- decode
-    wallet <- decode
+    wallets <- decode
     return $ def
         & usVss .~ vss
         & usPrimKey .~ pkey
-        & usKeys .~ keys
-        & usWallet .~ wallet
+        & usWallets .~ wallets
 
 -- | WithLogger is only needed on posix platforms
 #ifdef POSIX
@@ -263,7 +244,7 @@ initializeUserSecret secretPath = do
 #endif
   where
     createEmptyFile :: (MonadIO m) => FilePath -> m ()
-    createEmptyFile = liftIO . flip writeFile mempty
+    createEmptyFile = liftIO . flip BS.writeFile (serialize' @UserSecret def)
 
 -- | Reads user secret from file, assuming that file exists,
 -- and has mode 600, throws exception in other case
@@ -281,11 +262,11 @@ readUserSecret path = do
 -- If the file does not exist/is empty, returns empty user secret
 peekUserSecret :: (MonadIO m, WithLogger m) => FilePath -> m UserSecret
 peekUserSecret path = do
-    logInfo "initalizing user secret"
     initializeUserSecret path
     takeReadLock path $ do
-        econtent <- decodeFull' <$> BS.readFile path
-        pure $ either (const def) identity econtent & usPath .~ path
+        content <- eitherToThrow . first UserSecretDecodingError .
+                   decodeFull' =<< BS.readFile path
+        pure $ content & usPath .~ path
 
 -- | Read user secret putting an exclusive lock on it. To unlock, use
 -- 'writeUserSecretRelease'.
@@ -294,10 +275,11 @@ takeUserSecret path = do
     initializeUserSecret path
     liftIO $ do
         l <- lockFile (lockFilePath path) Exclusive
-        econtent <- decodeFull' <$> BS.readFile path
-        pure $ either (const def) identity econtent
-            & usPath .~ path
-            & usLock .~ Just l
+        content <- eitherToThrow . first UserSecretDecodingError .
+                   decodeFull' =<< BS.readFile path
+        pure $ content
+             & usPath .~ path
+             & usLock .~ Just l
 
 -- | Writes user secret .
 writeUserSecret :: (MonadIO m) => UserSecret -> m ()
@@ -337,3 +319,88 @@ writeRaw u = do
 -- | Helper for taking shared lock on file
 takeReadLock :: MonadIO m => FilePath -> IO a -> m a
 takeReadLock path = liftIO . withFileLock (lockFilePath path) Shared . const
+
+----------------------------------------------------------------------------
+-- Legacy
+----------------------------------------------------------------------------
+
+-- | Describes HD wallets keyfile content
+data WalletUserSecret = WalletUserSecret
+    { _wusRootKey    :: EncryptedSecretKey  -- ^ root key of wallet set
+    , _wusWalletName :: Text                -- ^ name of wallet
+    , _wusAccounts   :: [(Word32, Text)]    -- ^ accounts coordinates and names
+    , _wusAddrs      :: [(Word32, Word32)]  -- ^ addresses coordinates
+    } deriving (Show, Generic)
+
+deriving instance Eq EncryptedSecretKey => Eq WalletUserSecret
+
+instance Arbitrary WalletUserSecret where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
+
+makeLenses ''WalletUserSecret
+
+fixedNM :: NetworkMagic
+fixedNM = NMNothing
+
+instance Buildable WalletUserSecret where
+    build WalletUserSecret{..} =
+        bprint ("{ root = "%addressF%", set name = "%build%
+                ", wallets = "%pairsF%", accounts = "%pairsF%" }")
+        -- TODO mhueschen |
+        -- TODO @intricate: Will probably have to add NetworkMagic to WalletUserSecret
+        -- instead of using NMNothing here :/
+        (makeRootPubKeyAddress fixedNM $ encToPublic _wusRootKey)
+        _wusWalletName
+        _wusAccounts
+        _wusAddrs
+      where
+        pairsF :: (Buildable a, Buildable b) => Format r ([(a, b)] -> r)
+        pairsF = later $ mconcat . map (uncurry $ bprint ("("%build%", "%build%")"))
+
+deriveSimpleBi ''WalletUserSecret [
+    Cons 'WalletUserSecret [
+        Field [| _wusRootKey    :: EncryptedSecretKey |],
+        Field [| _wusWalletName :: Text               |],
+        Field [| _wusAccounts   :: [(Word32, Text)]   |],
+        Field [| _wusAddrs      :: [(Word32, Word32)] |]
+    ]]
+
+mkGenesisWalletUserSecret :: EncryptedSecretKey -> WalletUserSecret
+mkGenesisWalletUserSecret _wusRootKey = do
+    let _wusWalletName = "Genesis wallet"
+        _wusAccounts   = [(accountGenesisIndex, "Genesis account")]
+        _wusAddrs      = [(accountGenesisIndex, wAddressGenesisIndex)]
+    WalletUserSecret{..}
+
+-- | Legacy 'UserSecret' type.
+data UserSecret0 = UserSecret0
+    { _usKeys0    :: [EncryptedSecretKey]
+    , _usPrimKey0 :: Maybe SecretKey
+    , _usVss0     :: Maybe VssKeyPair
+    , _usWallet0  :: Maybe WalletUserSecret
+    , _usPath0    :: FilePath
+    , _usLock0    :: Maybe FileLock
+    }
+
+makeLenses ''UserSecret0
+
+instance Default UserSecret0 where
+    def = UserSecret0 [] Nothing Nothing Nothing "" Nothing
+
+instance Bi UserSecret0 where
+  encode us = encodeListLen 4 <> encode (_usVss0 us) <>
+                                      encode (_usPrimKey0 us) <>
+                                      encode (_usKeys0 us) <>
+                                      encode (_usWallet0 us)
+  decode = do
+    enforceSize "UserSecret" 4
+    vss  <- decode
+    pkey <- decode
+    keys <- decode
+    wallet <- decode
+    return $ def
+        & usVss0 .~ vss
+        & usPrimKey0 .~ pkey
+        & usKeys0 .~ keys
+        & usWallet0 .~ wallet

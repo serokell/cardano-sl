@@ -60,6 +60,7 @@ type DBPureMap = Map ByteString ByteString
 -- in real implementation).
 data DBPure = DBPure
     { _pureBlockIndexDB  :: DBPureMap
+    , _pureBlockDataDB   :: DBPureMap
     , _pureGStateDB      :: DBPureMap
     , _pureLrcDB         :: DBPureMap
     , _pureMiscDB        :: DBPureMap
@@ -69,7 +70,7 @@ data DBPure = DBPure
 makeLenses ''DBPure
 
 instance Default DBPure where
-    def = DBPure mempty mempty mempty mempty mempty
+    def = DBPure mempty mempty mempty mempty mempty mempty
 
 type DBPureVar = IORef DBPure
 
@@ -84,6 +85,7 @@ cloneDBPure = readIORef >=> newIORef
 
 tagToLens :: DBTag -> Lens' DBPure DBPureMap
 tagToLens BlockIndexDB = pureBlockIndexDB
+tagToLens BlockDataDB  = pureBlockDataDB
 tagToLens GStateDB     = pureGStateDB
 tagToLens LrcDB        = pureLrcDB
 tagToLens MiscDB       = pureMiscDB

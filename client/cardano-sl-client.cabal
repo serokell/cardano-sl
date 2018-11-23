@@ -26,7 +26,11 @@ library
 
                        Pos.Client.KeyStorage
 
+                       Pos.Util.BackupPhrase
+                       Pos.Util.Mnemonics
+
   build-depends:       base
+                     , bytestring
                      , cardano-sl
                      , cardano-sl-block
                      , cardano-sl-core
@@ -39,10 +43,12 @@ library
                      , cardano-sl-update
                      , cardano-sl-util
                      , containers
+                     , cryptonite
                      , data-default
                      , formatting
                      , lens
                      , log-warper
+                     , memory
                      , mtl
                      , safe-exceptions
                      , serokell-util
@@ -52,7 +58,9 @@ library
                      , universum
                      , unordered-containers
                      , vector
+
                      , QuickCheck
+                     , quickcheck-instances
 
   default-extensions:  DeriveDataTypeable
                        DeriveGeneric

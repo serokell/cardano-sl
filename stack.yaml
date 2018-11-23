@@ -38,8 +38,6 @@ packages:
 - lib
 - generator
 - client
-- auxx
-- explorer
 - node
 - tools
 - wallet
@@ -90,7 +88,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/cardano-crypto
-    commit: 287cc575fafe86af9d24af9d012c47f9d3f04da0
+    commit: 33c7ecc6e4bd71c3ea0195e9d796eeace7be22cf
   extra-dep: true
   # to be removed when haskell-ip is in the current stackage version
 - location:
@@ -222,13 +220,15 @@ extra-deps:
 # Support for wallet's Txmeta tracking
 - sqlite-simple-errors-0.6.1.0
 
+# Ariadne
+- cryptonite-openssl-0.7
+
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything
 
 # If you find it too restrictive, you can use `scripts/build/cardano-sl.sh' script
 ghc-options:
   cardano-sl:             -Werror -fwarn-redundant-constraints
-  cardano-sl-auxx:        -Werror -fwarn-redundant-constraints
   cardano-sl-binary:      -Werror -fwarn-redundant-constraints
   cardano-sl-binary-test: -Werror -fwarn-redundant-constraints
   cardano-sl-block:       -Werror -fwarn-redundant-constraints
@@ -241,7 +241,6 @@ ghc-options:
   cardano-sl-crypto-test: -Werror -fwarn-redundant-constraints
   cardano-sl-db:          -Werror -fwarn-redundant-constraints
   cardano-sl-delegation:  -Werror -fwarn-redundant-constraints
-  cardano-sl-explorer:    -Werror -fwarn-redundant-constraints
   cardano-sl-generator:   -Werror -fwarn-redundant-constraints
   cardano-sl-infra:       -Werror -fwarn-redundant-constraints
   cardano-sl-lrc:         -Werror -fwarn-redundant-constraints
@@ -257,4 +256,3 @@ ghc-options:
   cardano-sl-util-test:   -Werror -fwarn-redundant-constraints
   cardano-sl-wallet:      -Werror -fwarn-redundant-constraints
   cardano-sl-wallet-new:  -Werror -fwarn-redundant-constraints
-  node-ipc:               -Werror -fwarn-redundant-constraints

@@ -45,12 +45,12 @@ module Node.Internal (
   ) where
 
 import           Control.Concurrent (threadDelay)
-import           Control.Concurrent.STM
 import           Control.Concurrent.Async
 import           Control.Concurrent.MVar
-import           Control.Exception (Exception, SomeException, SomeAsyncException,
-                                    bracket, catch, handle, finally, throwIO,
-                                    mask, uninterruptibleMask_, fromException, try)
+import           Control.Concurrent.STM
+import           Control.Exception (Exception, SomeAsyncException, SomeException, bracket, catch,
+                                    finally, fromException, handle, mask, throwIO, try,
+                                    uninterruptibleMask_)
 import           Control.Monad (forM_, mapM_, when)
 import           Data.Binary
 import qualified Data.ByteString as BS
@@ -75,12 +75,13 @@ import           GHC.Generics (Generic)
 import qualified Network.Transport as NT
 import           Node.Message.Class (Packing, Serializable (..), pack, unpack)
 import           Node.Message.Decoder (Decoder (..), DecoderStep (..), continueDecoding)
-import           Pos.Util.Trace (Trace, Severity (..), traceWith)
+import           Pos.Util.Trace (Severity (..), Trace, traceWith)
 import qualified System.Metrics.Distribution as Metrics (Distribution)
-import qualified System.Metrics.Gauge as Metrics (Gauge)
 import qualified System.Metrics.Distribution as Metrics.Distribution
+import qualified System.Metrics.Gauge as Metrics (Gauge)
 import qualified System.Metrics.Gauge as Metrics.Gauge
 import           System.Random (Random, StdGen, random)
+import           System.Wlog (logDebug, usingLoggerName)
 
 -- Copied from the old Mockable definition for Production.
 getCurrentTime :: IO Microsecond
@@ -701,8 +702,13 @@ killNode node = do
         then throwIO $ userError "killNode : already killed"
         else pure (nodeState { _nodeStateClosed = True }, ())
     uninterruptibleCancel (nodeDispatcherThread node)
+    usingLoggerName "killNode" $ logDebug "Cancelled nodeDispatcherThread"
     killRunningHandlers node
-    nodeCloseEndPoint node
+    usingLoggerName "killNode" $ logDebug "Killed running handlers"
+    -- Results of AD-101 investigation indicated that this call hangs
+    -- in case of ariadne-qt. As a workaround we just don't call that
+    -- function.
+    -- nodeCloseEndPoint node
 
 data ConnectionState peerData =
 

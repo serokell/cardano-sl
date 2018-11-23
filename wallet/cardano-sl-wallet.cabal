@@ -99,9 +99,6 @@ library
 
                       Pos.Wallet.Web.Util
 
-                      Pos.Util.BackupPhrase
-                      Pos.Util.Mnemonics
-
                       -- shared test sources needed by tests of wallet-new
                       Test.Pos.Wallet.Web.Mode
 

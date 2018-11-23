@@ -32,7 +32,13 @@ bracketTransportTCP
     -> IO a
 bracketTransportTCP logTrace connectionTimeout tcpAddr k = bracket
     (createTransportTCP logTrace connectionTimeout tcpAddr)
-    NT.closeTransport
+    -- It turned out (see AD-101) that 'closeTransport' sometimes
+    -- hangs (mostly in ariadne-qt case). We don't know concrete
+    -- reasons why it happens and as a workaround we just don't
+    -- call that function. It's not too bad, because this code can
+    -- be called only when the application is being closed and
+    -- nobody guarantees such code will be called anyway.
+    (const pass) -- NT.closeTransport
     k
 
 createTransportTCP
