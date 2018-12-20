@@ -20,7 +20,7 @@ import qualified PlutusCore.Term as PLCore
 import           Serokell.AcidState.Instances ()
 import           Serokell.Data.Memory.Units (Byte, fromBytes, toBytes)
 
-import           Pos.Binary.Class (AsBinary (..), Bi)
+import           Pos.Binary.Class (Bi)
 import qualified Pos.Binary.Class as Bi
 import           Pos.Core.Block
 import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..),
@@ -390,10 +390,6 @@ instance SafeCopy Byte
 instance (SafeCopy k, SafeCopy v, Eq k, Hashable k) => SafeCopy (MM.MapModifier k v) where
     getCopy = contain $ MM.fromHashMap <$> safeGet
     putCopy mm = contain $ safePut (MM.toHashMap mm)
-
-instance SafeCopy (AsBinary a) where
-    getCopy = contain $ AsBinary <$> safeGet
-    putCopy = contain . safePut . getAsBinary
 
 instance (Typeable a, Bi a) => SafeCopy (WithHash a) where
     getCopy = getCopyBi

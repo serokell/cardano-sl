@@ -19,9 +19,8 @@ import qualified Data.Map.Strict as M
 
 import           Pos.Binary.Core ()
 import           Pos.Core (AddrStakeDistribution (..), Address (..), Coin, CoinPortion,
-                           GenesisData (..), HasGenesisData, StakeholderId, StakesList,
-                           aaStakeDistribution, addrAttributesUnwrapped, applyCoinPortionDown,
-                           coinToInteger, genesisData, mkCoin, sumCoins, unsafeAddCoin,
+                           StakeholderId, StakesList, aaStakeDistribution, addrAttributesUnwrapped,
+                           applyCoinPortionDown, coinToInteger, mkCoin, sumCoins, unsafeAddCoin,
                            unsafeGetCoin, unsafeIntegerToCoin)
 import           Pos.Core.Genesis (GenesisWStakeholders (..))
 import           Pos.Core.Txp (TxAux (..), TxOut (..), TxOutAux (..), TxPayload (..), mkTxPayload)

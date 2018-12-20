@@ -27,6 +27,7 @@ library
   build-depends:       QuickCheck
                      , aeson
                      , attoparsec
+                     , bytestring
                      , base
                      , base16-bytestring
                      , bytestring
@@ -37,6 +38,7 @@ library
                      , directory
                      , file-embed
                      , filepath
+                     , hedgehog
                      , formatting
                      , hedgehog
                      , hspec

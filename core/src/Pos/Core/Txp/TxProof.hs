@@ -8,7 +8,6 @@ import           Universum
 import qualified Data.Text.Buildable as Buildable
 import           Fmt (genericF)
 
-import           Pos.Binary.Class (Bi)
 import           Pos.Crypto (Hash, hash)
 import           Pos.Merkle (MerkleRoot, mkMerkleTree, mtRoot)
 
@@ -30,7 +29,7 @@ instance NFData TxProof
 -- | Construct 'TxProof' which proves given 'TxPayload'.
 -- This will construct a merkle tree, which can be very expensive. Use with
 -- care. Bi constraints arise because we need to hash these things.
-mkTxProof :: (Bi Tx,  Bi TxInWitness) => TxPayload -> TxProof
+mkTxProof :: TxPayload -> TxProof
 mkTxProof UnsafeTxPayload {..} =
     TxProof
     { txpNumber = fromIntegral (length _txpTxs)

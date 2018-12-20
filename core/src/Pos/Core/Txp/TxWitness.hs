@@ -7,10 +7,16 @@ module Pos.Core.Txp.TxWitness
 
 import           Universum
 
+import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, build, (%))
 import           Serokell.Util.Base16 (base16F)
 
+import           Pos.Binary.Class (Bi (..), Case (..), decodeKnownCborDataItem,
+                                   decodeListLenCanonical, decodeUnknownCborDataItem,
+                                   encodeKnownCborDataItem, encodeListLen,
+                                   encodeUnknownCborDataItem, knownCborDataItemSizeExpr, matchSize,
+                                   szCases)
 import           Pos.Core.Common (Script, addressHash)
 import           Pos.Crypto (Hash, PublicKey, RedeemPublicKey, RedeemSignature, Signature, hash,
                              shortHashF)
@@ -47,6 +53,51 @@ instance Buildable TxInWitness where
         bprint ("PkWitness: key = "%build%", sig = "%build) key sig
     build (UnknownWitnessType t bs) =
         bprint ("UnknownWitnessType "%build%" "%base16F) t bs
+
+instance Bi TxInWitness where
+    encode input = case input of
+        PkWitness key sig         ->
+            encodeListLen 2 <>
+            encode (0 :: Word8) <>
+            encodeKnownCborDataItem (key, sig)
+        ScriptWitness val red     ->
+            encodeListLen 2 <>
+            encode (1 :: Word8) <>
+            encodeKnownCborDataItem (val, red)
+        RedeemWitness key sig     ->
+            encodeListLen 2 <>
+            encode (2 :: Word8) <>
+            encodeKnownCborDataItem (key, sig)
+        UnknownWitnessType tag bs ->
+            encodeListLen 2 <>
+            encode tag <>
+            encodeUnknownCborDataItem (LBS.fromStrict bs)
+    decode = do
+        len <- decodeListLenCanonical
+        tag <- decode @Word8
+        case tag of
+            0 -> do
+                matchSize len "TxInWitness.PkWitness" 2
+                uncurry PkWitness <$> decodeKnownCborDataItem
+            1 -> do
+                matchSize len "TxInWitness.ScriptWitness" 2
+                uncurry ScriptWitness <$> decodeKnownCborDataItem
+            2 -> do
+                matchSize len "TxInWitness.RedeemWitness" 2
+                uncurry RedeemWitness <$> decodeKnownCborDataItem
+            _ -> do
+                matchSize len "TxInWitness.UnknownWitnessType" 2
+                UnknownWitnessType tag <$> decodeUnknownCborDataItem
+
+    encodedSizeExpr size _ = 2 +
+        (szCases $ map (fmap knownCborDataItemSizeExpr) $
+            [ let PkWitness key sig     = error "unused"
+              in  Case "PkWitness" $ size ((,) <$> pure key <*> pure sig)
+            , let ScriptWitness key sig = error "unused"
+              in  Case "ScriptWitness" $ size ((,) <$> pure key <*> pure sig)
+            , let RedeemWitness key sig = error "unused"
+              in  Case "RedeemWitness" $ size ((,) <$> pure key <*> pure sig)
+            ])
 
 instance NFData TxInWitness
 
