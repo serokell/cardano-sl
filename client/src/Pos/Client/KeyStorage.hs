@@ -25,8 +25,7 @@ module Pos.Client.KeyStorage
 import           Universum
 
 import qualified Control.Concurrent.STM as STM
-import           Control.Lens ((%%=), (<>~))
-import           Control.Monad.State.Strict (modify)
+import           Control.Lens ((<%=), (<>~))
 import           Serokell.Util (modifyTVarS)
 import           System.Wlog (WithLogger)
 
@@ -45,9 +44,7 @@ class Monad m => MonadKeysRead m where
     getSecret :: m UserSecret
 
 class MonadKeysRead m => MonadKeys m where
-    modifySecretNew :: State UserSecret a -> m a
     modifySecret :: (UserSecret -> UserSecret) -> m ()
-    modifySecret f = modifySecretNew (modify f)
 
 type HasKeysContext ctx m =
     ( MonadReader ctx m
@@ -58,19 +55,16 @@ type HasKeysContext ctx m =
 getSecretDefault :: HasKeysContext ctx m => m UserSecret
 getSecretDefault = view userSecret >>= atomically . STM.readTVar
 
-modifySecretPureDefault :: HasKeysContext ctx m => State UserSecret a -> m a
-modifySecretPureDefault s = do
+modifySecretPureDefault :: HasKeysContext ctx m => (UserSecret -> UserSecret) -> m ()
+modifySecretPureDefault f = do
     us <- view userSecret
-    atomically $ modifyTVarS us (identity %%= runState s)
+    void $ atomically $ modifyTVarS us (identity <%= f)
 
-modifySecretDefault :: HasKeysContext ctx m => State UserSecret a -> m a
-modifySecretDefault s = do
+modifySecretDefault :: HasKeysContext ctx m => (UserSecret -> UserSecret) -> m ()
+modifySecretDefault f = do
     us <- view userSecret
-    (res, new) <- atomically $ do
-        secret <- readTVar us
-        let pair = runState s secret
-        pair <$ writeTVar us (snd pair)
-    res <$ writeUserSecret new
+    new <- atomically $ modifyTVarS us (identity <%= f)
+    writeUserSecret new
 
 ----------------------------------------------------------------------
 -- Helpers

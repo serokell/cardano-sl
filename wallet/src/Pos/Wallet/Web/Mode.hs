@@ -334,7 +334,7 @@ instance MonadKeysRead WalletWebMode where
     getSecret = getSecretDefault
 
 instance MonadKeys WalletWebMode where
-    modifySecretNew = modifySecretDefault
+    modifySecret = modifySecretDefault
 
 getNewAddressWebWallet
     :: MonadWalletLogic ctx m
