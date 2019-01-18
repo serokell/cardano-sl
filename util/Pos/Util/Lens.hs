@@ -1,5 +1,3 @@
-{-# LANGUAGE Rank2Types #-}
-
 -- | Utilities related to 'lens' package.
 
 module Pos.Util.Lens
@@ -8,7 +6,6 @@ module Pos.Util.Lens
          _neHead
        , _neTail
        , _neLast
-       , listLens
 
        -- * Custom LensRules
        , postfixLFields
@@ -16,12 +13,10 @@ module Pos.Util.Lens
 
        ) where
 
-import           Universum hiding (init, last)
 import           Data.List (init, last)
+import           Universum hiding (init, last)
 
-import           Control.Applicative (ZipList (..))
-import           Control.Lens (Iso', LensRules, coerced, from, lens, lensField, lensRules,
-                               mappingNamer)
+import           Control.Lens (LensRules, lensField, lensRules, mappingNamer)
 
 -- | Lens for the head of 'NonEmpty'.
 --
@@ -39,24 +34,6 @@ _neTail f (x :| xs) = (x :|) <$> f xs
 _neLast :: Lens' (NonEmpty a) a
 _neLast f (x :| []) = (:| []) <$> f x
 _neLast f (x :| xs) = (\y -> x :| init xs ++ [y]) <$> f (last xs)
-
--- Something weird, but maybe it's useful, I dunno.
-applicativeLens :: forall f s a b. Applicative f => Lens' s (f a) -> Lens' a b -> Lens' s (f b)
-applicativeLens lfa lb = lens (map (view lb) . view lfa) setter
-  where
-    setter :: s -> f b -> s
-    setter s fb = s & lfa %~ (\fa -> set lb <$> fb <*> fa)
-
--- | If you have a lens from something to list of 'a' and from 'a' to
--- 'b', this function will create a function from that /something/ to
--- list of 'b'.
-listLens :: forall s a b. Lens' s [a] -> Lens' a b -> Lens' s [b]
-listLens lensToList lensToB = l . from _ZipList
-  where
-    _ZipList :: forall x. Iso' [x] (ZipList x)
-    _ZipList = coerced
-    l :: Lens' s (ZipList b)
-    l = applicativeLens (lensToList . _ZipList) lensToB
 
 ----------------------------------------------------------------------------
 -- Custom LensRules

@@ -8,18 +8,21 @@ module Dump
 
 import           Universum
 
+import           Control.Lens ((?~))
 import qualified Data.Text as T
 import           Serokell.Util (enumerate)
 import qualified Serokell.Util.Base64 as B64
 import           System.Directory (createDirectoryIfMissing)
 import           System.FilePath ((</>))
-import           System.Wlog (WithLogger, logError, logInfo)
+import           System.Wlog (WithLogger, logInfo)
 
 import           Pos.Core.Configuration (HasGeneratedSecrets, generatedSecrets)
-import           Pos.Core.Genesis (GeneratedSecrets (..), PoorSecret (..), RichSecrets (..))
+import           Pos.Core.Genesis (GeneratedSecrets (..), PoorSecret (..), RichSecrets (..),
+                                   poorSecretToEncKey)
 import           Pos.Crypto (SecretKey)
-import           Pos.Util.UserSecret (UserSecret, initializeUserSecret, takeUserSecret, usPrimKey,
-                                      usVss, writeUserSecretRelease)
+import           Pos.Util.UserSecret (UserSecret, initializeUserSecret, mkGenesisWalletUserSecret,
+                                      takeUserSecret, usKeys, usPrimKey, usVss, usWallet,
+                                      writeUserSecretRelease)
 
 ----------------------------------------------------------------------------
 -- Dump individual secrets
@@ -44,16 +47,15 @@ dumpRichSecrets fp RichSecrets {..} =
                         ]
 
 dumpPoorSecret
-    :: (WithLogger m)
+    :: (MonadIO m, MonadThrow m, WithLogger m)
     => FilePath
     -> PoorSecret
     -> m ()
-dumpPoorSecret _fp _poorSec = logError "not implemented"
-    -- let hdwSk = poorSecretToEncKey poorSec in
-    -- dumpUserSecret fp $
-    -- foldl' (.) identity [ usKeys %~ (hdwSk :)
-    --                     , usWallet ?~ mkGenesisWalletUserSecret hdwSk
-    --                     ]
+dumpPoorSecret fp poorSec = let hdwSk = poorSecretToEncKey poorSec in
+    dumpUserSecret fp $
+    foldl' (.) identity [ usKeys %~ (hdwSk :)
+                        , usWallet ?~ mkGenesisWalletUserSecret hdwSk
+                        ]
 
 dumpFakeAvvmSeed :: MonadIO m => FilePath -> ByteString -> m ()
 dumpFakeAvvmSeed fp seed = writeFile fp (B64.encode seed)

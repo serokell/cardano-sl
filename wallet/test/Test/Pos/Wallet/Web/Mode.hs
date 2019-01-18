@@ -377,7 +377,7 @@ instance MonadKeysRead WalletTestMode where
     getSecret = getSecretDefault
 
 instance MonadKeys WalletTestMode where
-    modifySecretNew = modifySecretPureDefault
+    modifySecret = modifySecretPureDefault
 
 instance (HasConfigurations) => MonadTxHistory WalletTestMode where
     getBlockHistory = getBlockHistoryDefault
