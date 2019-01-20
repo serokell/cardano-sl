@@ -53,8 +53,8 @@ packages:
   extra-dep: true
 
 - location:
-    git: https://github.com/input-output-hk/cardano-report-server.git
-    commit: 62f04801ef9fce4c8e856607400a2bb05ab732e9
+    git: https://github.com/serokell/cardano-report-server.git
+    commit: a46274e47ec70f540c3c654cc77d7a3d215822c7
   extra-dep: true
 
 - location:
@@ -162,13 +162,6 @@ packages:
 - location:
     git: https://github.com/input-output-hk/rocksdb-haskell-ng.git
     commit: 49f501a082d745f3b880677220a29cafaa181452
-  extra-dep: true
-
-# Because log-warper mainline depends on a lifted-async which depends upon a
-# buggy async
-- location:
-    git: https://github.com/input-output-hk/log-warper.git
-    commit: 4af8114fbcd5698a4e1fbc653031f0300e29faee
   extra-dep: true
 
 # Exposes a custom discovery function so you can specify the prefix.
