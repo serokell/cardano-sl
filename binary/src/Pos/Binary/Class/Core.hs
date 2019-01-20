@@ -73,9 +73,8 @@ import           Data.Typeable (TypeRep, typeRep)
 import qualified Data.Vector as Vector
 import qualified Data.Vector.Generic as Vector.Generic
 import           Foreign.Storable (sizeOf)
-import           Formatting (bprint, shown, string, (%))
-import qualified Formatting as F
-import           Data.Text.Buildable (build)
+import           Formatting (bprint, build, shown, string, (%))
+import qualified Formatting.Buildable
 import qualified GHC.Generics as G
 import           Serokell.Data.Memory.Units (Byte, fromBytes, toBytes)
 
@@ -823,21 +822,21 @@ instance Num (Fix SizeF) where
 
 instance Buildable t => Buildable (SizeF t) where
     build x_ =
-        let showp2 c x y = bprint ("(" % F.build % " " % string % " " % F.build % ")") x c y
+        let showp2 c x y = bprint ("(" % build % " " % string % " " % build % ")") x c y
         in case x_ of
             AddF x y -> showp2 "+" x y
             MulF x y -> showp2 "*" x y
             SubF x y -> showp2 "-" x y
-            NegF x   -> bprint ("-" % F.build) x
-            AbsF x   -> bprint ("|" % F.build % "|") x
-            SgnF x   -> bprint ("sgn(" % F.build % ")") x
-            CasesF xs -> bprint ("{ " % F.build % "}") $ foldMap (bprint (F.build % " ")) xs
+            NegF x   -> bprint ("-" % build) x
+            AbsF x   -> bprint ("|" % build % "|") x
+            SgnF x   -> bprint ("sgn(" % build % ")") x
+            CasesF xs -> bprint ("{ " % build % "}") $ foldMap (bprint (build % " ")) xs
             ValueF x  -> bprint shown (toInteger x)
-            ApF n _ x -> bprint (string % "(" % F.build % ")") n x
+            ApF n _ x -> bprint (string % "(" % build % ")") n x
             TodoF _ x -> bprint ("(_ :: " % shown % ")") (typeRep x)
 
 instance Buildable (Fix SizeF) where
-    build x = bprint F.build (unfix x)
+    build x = bprint build (unfix x)
 
 -- | Create a case expression from individual cases.
 szCases :: [Case Size] -> Size
@@ -851,7 +850,7 @@ caseValue :: Case t -> t
 caseValue (Case _ x) = x
 
 instance Buildable t => Buildable (Case t) where
-  build (Case n x) = bprint (string % "=" % F.build) n x
+  build (Case n x) = bprint (string % "=" % build) n x
 
 -- | A range of values. Should satisfy the invariant @forall x. lo x <= hi x@.
 data Range b = Range { lo :: b, hi :: b }

@@ -47,6 +47,7 @@ import qualified Codec.CBOR.Read as CBOR.Read
 import qualified Codec.CBOR.Write as CBOR.Write
 import           Control.Exception.Safe (impureThrow)
 import           Control.Monad.ST (ST, runST)
+import qualified Data.Aeson as Aeson (FromJSON (..), ToJSON (..))
 import qualified Data.ByteString as BS
 import           Data.ByteString.Builder (Builder)
 import qualified Data.ByteString.Builder.Extra as Builder
@@ -55,11 +56,16 @@ import qualified Data.ByteString.Lazy.Internal as BSL
 import           Data.Digest.CRC32 (CRC32 (..))
 import           Data.SafeCopy (SafeCopy (..), contain, safeGet, safePut)
 import           Data.Typeable (typeOf)
-import           Formatting (sformat, shown, (%))
+import           Formatting (formatToString, sformat, shown, (%))
 import           Serokell.Data.Memory.Units (Byte)
+import           Serokell.Util.Base64 (base64F)
+import qualified Serokell.Util.Base64 as B64
+import           Text.JSON.Canonical (FromJSON (..), JSValue (..),
+                     ReportSchemaErrors, ToJSON (..))
 
 import           Pos.Binary.Class.Core (Bi (..), Size, apMono, cborError,
                      enforceSize, toCborError, withWordSize)
+import           Pos.Util.Json.Parse (tryParseString)
 
 -- | Serialize a Haskell value to an external binary representation.
 --
@@ -197,6 +203,18 @@ newtype AsBinary a = AsBinary
 instance SafeCopy (AsBinary a) where
     getCopy = contain $ AsBinary <$> safeGet
     putCopy = contain . safePut . getAsBinary
+
+instance Monad m => ToJSON m (AsBinary smth) where
+    toJSON = pure . JSString . formatToString base64F . getAsBinary
+
+instance ReportSchemaErrors m => FromJSON m (AsBinary smth) where
+    fromJSON = fmap AsBinary . tryParseString B64.decode
+
+instance Aeson.ToJSON (AsBinary w) where
+    toJSON = Aeson.toJSON . B64.JsonByteString . getAsBinary
+
+instance Aeson.FromJSON (AsBinary w) where
+    parseJSON v = AsBinary . B64.getJsonByteString <$> Aeson.parseJSON v
 
 -- | A simple helper class simplifying work with 'AsBinary'.
 class AsBinaryClass a where

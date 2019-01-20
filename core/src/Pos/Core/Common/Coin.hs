@@ -20,17 +20,23 @@ module Pos.Core.Common.Coin
        , unsafeMulCoin
        , addCoin
        , subCoin
+       , mulCoin
        , divCoin
        ) where
 
 import           Universum
 
 import           Control.Monad.Except (MonadError (throwError))
+import qualified Data.Aeson as Aeson (FromJSON (..), ToJSON (..))
 import           Data.Data (Data)
-import qualified Data.Text.Buildable
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (Format, bprint, build, int, (%))
-import           Pos.Binary.Class (Bi (..))
+import qualified Formatting.Buildable
+import qualified Text.JSON.Canonical as Canonical (FromJSON (..),
+                     ReportSchemaErrors, ToJSON (..))
 
+import           Pos.Binary.Class (Bi (..))
+import           Pos.Util.Json.Canonical ()
 import           Pos.Util.Util (leftToPanic)
 
 -- | Coin is the least possible unit of currency.
@@ -49,6 +55,18 @@ instance Bi Coin where
     encode = encode . unsafeGetCoin
     decode = Coin <$> decode
     encodedSizeExpr size pxy = size (unsafeGetCoin <$> pxy)
+
+instance Monad m => Canonical.ToJSON m Coin where
+    toJSON = Canonical.toJSON @_ @Word64 . unsafeGetCoin  -- i. e. String
+
+instance Canonical.ReportSchemaErrors m => Canonical.FromJSON m Coin where
+    fromJSON = fmap Coin . Canonical.fromJSON
+
+instance Aeson.FromJSON Coin where
+    parseJSON v = mkCoin <$> Aeson.parseJSON v
+
+instance Aeson.ToJSON Coin where
+    toJSON = Aeson.toJSON . unsafeGetCoin
 
 -- | Maximal possible value of 'Coin'.
 maxCoinVal :: Word64
@@ -100,12 +118,11 @@ addCoin (unsafeGetCoin -> a) (unsafeGetCoin -> b)
 
 -- | Only use if you're sure there'll be no overflow.
 unsafeAddCoin :: Coin -> Coin -> Coin
-unsafeAddCoin (unsafeGetCoin -> a) (unsafeGetCoin -> b)
-    | res >= a && res >= b && res <= unsafeGetCoin (maxBound @Coin) = Coin res
-    | otherwise =
-      error $ "unsafeAddCoin: overflow when summing " <> show a <> " + " <> show b
-  where
-    res = a+b
+unsafeAddCoin a b =
+    case addCoin a b of
+        Just r -> r
+        Nothing ->
+            error $ "unsafeAddCoin: overflow when summing " <> show a <> " + " <> show b
 {-# INLINE unsafeAddCoin #-}
 
 -- | Subtraction of coins. Returns 'Nothing' when the subtrahend is bigger
@@ -120,17 +137,26 @@ unsafeSubCoin :: Coin -> Coin -> Coin
 unsafeSubCoin a b = fromMaybe (error "unsafeSubCoin: underflow") (subCoin a b)
 {-# INLINE unsafeSubCoin #-}
 
--- | Only use if you're sure there'll be no overflow.
-unsafeMulCoin :: Integral a => Coin -> a -> Coin
-unsafeMulCoin (unsafeGetCoin -> a) b
-    | res <= coinToInteger (maxBound @Coin) = Coin (fromInteger res)
-    | otherwise = error "unsafeMulCoin: overflow"
+-- | Multiplication between 'Coin's. Returns 'Nothing' in case of overflow.
+mulCoin :: Integral a => Coin -> a -> Maybe Coin
+mulCoin (unsafeGetCoin -> a) b
+    | res <= coinToInteger (maxBound @Coin) = Just $ Coin (fromInteger res)
+    | otherwise = Nothing
   where
     res = toInteger a * toInteger b
+{-# INLINE mulCoin #-}
 
-divCoin :: Integral a => Coin -> a -> Coin
-divCoin (unsafeGetCoin -> a) b =
-    Coin (fromInteger (toInteger a `div` toInteger b))
+-- | Only use if you're sure there'll be no overflow.
+unsafeMulCoin :: Integral a => Coin -> a -> Coin
+unsafeMulCoin a b =
+    case mulCoin a b of
+         Just r  -> r
+         Nothing -> error "unsafeMulCoin: overflow"
+{-# INLINE unsafeMulCoin #-}
+
+divCoin :: Integral b => Coin -> b -> Coin
+divCoin (unsafeGetCoin -> a) b = Coin (a `div` fromIntegral b)
+{-# INLINE divCoin #-}
 
 integerToCoin :: Integer -> Either Text Coin
 integerToCoin n
@@ -142,6 +168,5 @@ unsafeIntegerToCoin :: Integer -> Coin
 unsafeIntegerToCoin n = leftToPanic "unsafeIntegerToCoin: " (integerToCoin n)
 {-# INLINE unsafeIntegerToCoin #-}
 
-----------------------------------------------------------------------------
--- CoinPortion
-----------------------------------------------------------------------------
+-- Place this here to avoid TH staging issues.
+deriveSafeCopySimple 0 'base ''Coin
