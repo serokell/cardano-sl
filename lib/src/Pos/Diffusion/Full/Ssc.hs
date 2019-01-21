@@ -10,6 +10,7 @@ module Pos.Diffusion.Full.Ssc
 import           Universum
 
 import           Data.Tagged (Tagged (..))
+import           Formatting.Buildable (Buildable)
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Node.Message.Class (Message)
 

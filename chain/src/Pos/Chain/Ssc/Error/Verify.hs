@@ -8,6 +8,7 @@ module Pos.Chain.Ssc.Error.Verify
 import           Universum
 
 import           Formatting (bprint, build, stext, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable
 import           Serokell.Util (listJson)
 

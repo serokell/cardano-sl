@@ -22,6 +22,7 @@ import           Control.Lens (_Wrapped)
 import           Control.Monad.Except (ExceptT (ExceptT),
                      MonadError (throwError), runExceptT, withExceptT)
 import qualified Data.List.NonEmpty as NE
+import           Fmt (pretty)
 import           Formatting (sformat, shown, (%))
 
 import           Pos.Chain.Block (ApplyBlocksException (..), Block, Blund,

@@ -47,6 +47,7 @@ import           Data.Text.Lazy (unpack)
 import           Data.Text.Lazy.Builder (toLazyText)
 import           Data.Typeable (TypeRep, typeRep)
 import           Formatting (bprint, build, formatToString, int, (%))
+import           Formatting.Buildable (Buildable)
 import           Hedgehog (annotate, failure, forAllWith, success)
 import qualified Hedgehog as HH
 import qualified Hedgehog.Gen as HH.Gen

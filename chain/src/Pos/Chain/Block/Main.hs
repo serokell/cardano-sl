@@ -38,6 +38,7 @@ import           Data.SafeCopy (SafeCopy (..), base, contain,
                      deriveSafeCopySimple, safeGet, safePut)
 import           Fmt (genericF)
 import           Formatting (bprint, build, builder, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable as Buildable
 
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..),

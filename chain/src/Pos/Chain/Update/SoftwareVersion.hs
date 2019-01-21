@@ -12,7 +12,9 @@ import           Universum
 import           Control.Monad.Except (MonadError)
 import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
+import           Fmt (pretty)
 import           Formatting (bprint, int, stext, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable as Buildable
 import qualified Prelude
 
@@ -35,7 +37,7 @@ instance Buildable SoftwareVersion where
         bprint (stext % ":" % int) (getApplicationName svAppName) svNumber
 
 instance Show SoftwareVersion where
-    show = toString . pretty
+    show = toString @Text . pretty
 
 instance Hashable SoftwareVersion
 

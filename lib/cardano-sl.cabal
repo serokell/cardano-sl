@@ -166,6 +166,7 @@ library
                       , exceptions
                       , filelock >= 0.1.0.1
                       , filepath
+                      , fmt
                       , formatting
                       , generic-arbitrary
                       , hspec

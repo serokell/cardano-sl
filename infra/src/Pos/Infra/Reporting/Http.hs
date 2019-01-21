@@ -16,6 +16,7 @@ import           Data.Aeson (encode)
 import qualified Data.List.NonEmpty as NE
 import           Data.Time.Clock (getCurrentTime)
 import           Data.Version (showVersion)
+import           Fmt (pretty)
 import           Formatting (sformat, shown, string, (%))
 import           Network.HTTP.Client (httpLbs, newManager, parseUrlThrow)
 import qualified Network.HTTP.Client.MultipartFormData as Form

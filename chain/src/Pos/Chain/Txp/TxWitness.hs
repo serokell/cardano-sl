@@ -15,6 +15,7 @@ import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import qualified Data.ByteString.Lazy as LBS
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (bprint, build, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable as Buildable
 import           Serokell.Util.Base16 (base16F)
 import           Serokell.Util.Base64 (JsonByteString (..))

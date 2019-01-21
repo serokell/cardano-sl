@@ -10,6 +10,7 @@ module Pos.Infra.Communication.Relay.Class
        , MempoolParams (..)
        ) where
 
+import           Formatting.Buildable (Buildable)
 import           Node.Message.Class (Message)
 import           Pos.Binary.Class (Bi)
 import           Pos.Binary.Limit (Limit (..))

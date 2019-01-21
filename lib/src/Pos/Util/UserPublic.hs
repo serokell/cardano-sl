@@ -33,6 +33,7 @@ import           Control.Lens (makeLenses, to)
 import qualified Data.ByteString as BS
 import           Data.Default (Default (..))
 import           Formatting (Format, bprint, build, formatToString, later, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable
 import           Serokell.Util.Text (listJson)
 import           System.Directory (doesFileExist)

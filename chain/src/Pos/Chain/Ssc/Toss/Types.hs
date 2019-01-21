@@ -21,6 +21,7 @@ import           Universum hiding (id)
 
 import           Control.Lens (at, makeLenses, (%=), (.=))
 import qualified Ether
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable as Buildable
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi,

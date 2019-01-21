@@ -40,6 +40,7 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
 import           Data.Text.Lazy.Builder (Builder, fromText)
 import           Formatting (sformat, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable
 import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util (listJson)

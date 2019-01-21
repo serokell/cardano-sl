@@ -22,6 +22,7 @@ import           Control.Lens (Wrapped (..), iso)
 import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import           Data.Tagged (Tagged)
 import           Formatting (bprint, build, (%))
+import           Formatting (Buildable)
 import qualified Formatting.Buildable as B
 
 import           Node.Message.Class (Message (..))

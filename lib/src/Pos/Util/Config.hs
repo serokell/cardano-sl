@@ -11,6 +11,7 @@ import           Universum
 
 import qualified Data.Map as Map
 import qualified Data.Yaml as Y
+import           Fmt (pretty)
 import qualified Language.Haskell.TH.Syntax as TH
 import           System.Directory (canonicalizePath, getDirectoryContents)
 import           System.FilePath (takeDirectory, takeFileName, (</>))

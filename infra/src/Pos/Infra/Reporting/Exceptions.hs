@@ -11,7 +11,9 @@ module Pos.Infra.Reporting.Exceptions
 import           Universum
 
 import           Control.Exception.Safe (Exception (..))
+import           Fmt (pretty)
 import           Formatting (bprint, shown, stext, string, (%))
+import           Formatting (Buildable)
 import qualified Formatting.Buildable
 
 import           Pos.Core.Exception (cardanoExceptionFromException,
@@ -27,7 +29,7 @@ data ReportingError
 instance Exception ReportingError where
     toException = cardanoExceptionToException
     fromException = cardanoExceptionFromException
-    displayException = toString . pretty
+    displayException = pretty
 
 instance Buildable ReportingError where
     build =

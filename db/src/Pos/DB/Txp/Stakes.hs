@@ -29,6 +29,7 @@ import qualified Data.Conduit.List as CL
 import qualified Data.HashMap.Strict as HM
 import qualified Database.RocksDB as Rocks
 import           Formatting (bprint, sformat, (%))
+import           Formatting (Buildable)
 import qualified Formatting.Buildable
 import           Serokell.Util (Color (Red), colorize)
 import           UnliftIO (MonadUnliftIO)

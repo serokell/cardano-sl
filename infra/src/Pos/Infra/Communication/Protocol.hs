@@ -28,6 +28,7 @@ import           Control.Exception (throwIO)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.List.NonEmpty as NE
 import           Formatting (bprint, build, sformat, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable as B
 import qualified Network.Broadcast.OutboundQueue as OQ
 import qualified Node as N

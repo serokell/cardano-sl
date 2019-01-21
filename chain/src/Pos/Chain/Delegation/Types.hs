@@ -15,6 +15,7 @@ module Pos.Chain.Delegation.Types
 import           Universum
 
 import           Formatting (bprint, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable as Buildable
 import           Serokell.Util.Text (listJson)
 

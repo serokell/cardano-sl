@@ -9,6 +9,7 @@ import           Control.Monad.Except (MonadError)
 import qualified Data.Aeson as Aeson (FromJSON, ToJSON)
 import           Data.Semigroup (Semigroup)
 import           Formatting (bprint, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable as Buildable
 import           Serokell.Util (mapJson)
 import           Text.JSON.Canonical (FromJSON (..), ToJSON (..))

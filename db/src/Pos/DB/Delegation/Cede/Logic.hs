@@ -18,6 +18,7 @@ import           Control.Lens (uses, (%=))
 import           Control.Monad.Except (throwError)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
+import           Fmt (pretty)
 import           Formatting (build, sformat, (%))
 
 import           Pos.Chain.Block (BlockSignature (..), MainBlockHeader,

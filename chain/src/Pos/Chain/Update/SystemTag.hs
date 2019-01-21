@@ -20,6 +20,7 @@ import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Data.Text as T
 import           Distribution.System (Arch (..), OS (..))
 import           Distribution.Text (display)
+import           Formatting.Buildable (Buildable)
 --import           Instances.TH.Lift ()
 import           Language.Haskell.TH.Syntax (Lift)
 

@@ -14,6 +14,7 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (Microsecond, Millisecond, convertUnit)
 import           Formatting (build, sformat, shown, (%))
+import           Formatting.Buildable (Buildable)
 import           Serokell.Util.Exceptions ()
 import           Serokell.Util.Text (listJson)
 import qualified System.Metrics.Gauge as Metrics

@@ -53,6 +53,7 @@ import qualified Data.Conduit.List as CL
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import qualified Database.RocksDB as Rocks
+import           Fmt (pretty)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Binary.Class (serialize')

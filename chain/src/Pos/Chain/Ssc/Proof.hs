@@ -8,6 +8,7 @@ import           Universum
 
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Fmt (genericF)
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable as Buildable
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveIndexedBi)

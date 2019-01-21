@@ -78,8 +78,10 @@ import           Data.List (lookup)
 import           Data.Reflection (Reifies (..), reflect)
 import qualified Data.Text as T
 import           Data.Time.Clock.POSIX (getPOSIXTime)
+import           Fmt (pretty)
 import           Formatting (bprint, build, builder, fconst, formatToString,
                      sformat, shown, stext, string, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable
 import           GHC.IO.Unsafe (unsafePerformIO)
 import           GHC.TypeLits (KnownSymbol, Symbol, symbolVal)

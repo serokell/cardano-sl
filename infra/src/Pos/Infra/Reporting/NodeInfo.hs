@@ -7,6 +7,7 @@ module Pos.Infra.Reporting.NodeInfo
 import           Universum
 
 import           Data.Bits (Bits (..))
+import           Fmt (pretty)
 import           Formatting (sformat, stext, (%))
 import           Network.Info (IPv4 (..), getNetworkInterfaces, ipv4)
 import           Serokell.Util.Text (listBuilderJSON)

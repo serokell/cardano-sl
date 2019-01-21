@@ -19,6 +19,7 @@ import           Universum
 import           Control.Lens (uses, (-=), (.=), _Wrapped)
 import           Control.Monad.Except (MonadError (throwError), runExceptT)
 import           Data.Default (Default (def))
+import           Fmt (pretty)
 import           Formatting (build, fixed, ords, sformat, stext, (%))
 import           Serokell.Data.Memory.Units (Byte, memory)
 

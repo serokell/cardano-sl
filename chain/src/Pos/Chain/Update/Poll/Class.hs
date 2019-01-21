@@ -29,6 +29,7 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import qualified Data.List as List (find)
 import qualified Ether
+import           Fmt (pretty)
 
 import           Pos.Chain.Update.ApplicationName (ApplicationName)
 import           Pos.Chain.Update.BlockVersion (BlockVersion)

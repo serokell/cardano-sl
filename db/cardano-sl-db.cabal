@@ -143,6 +143,7 @@ library
                      , exceptions
                      , extra
                      , filepath
+                     , fmt
                      , formatting
                      , lens
                      , lrucache

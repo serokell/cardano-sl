@@ -20,6 +20,7 @@ import           Control.Monad.Morph (hoist)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
 import           Data.List ((\\))
+import           Fmt (pretty)
 import           Formatting (bprint, build, sformat, (%))
 import qualified Formatting.Buildable as B
 import           Serokell.Util (listJson, mapJson)

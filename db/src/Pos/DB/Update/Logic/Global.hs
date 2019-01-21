@@ -15,6 +15,7 @@ import           Universum
 
 import           Control.Monad.Except (MonadError, runExceptT)
 import           Data.Default (Default (def))
+import           Fmt (pretty)
 import           UnliftIO (MonadUnliftIO)
 
 import           Pos.Chain.Block (ComponentBlock (..), headerHashG,

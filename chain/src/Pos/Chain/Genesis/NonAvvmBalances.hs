@@ -11,7 +11,9 @@ import           Control.Monad.Except (MonadError (throwError))
 import qualified Data.Aeson as Aeson (FromJSON (..), ToJSON (..))
 import qualified Data.HashMap.Strict as HM
 import           Formatting (bprint, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable as Buildable
+import           Fmt (pretty)
 import           Serokell.Util (mapJson)
 import           Text.JSON.Canonical (FromJSON (..), ToJSON (..))
 

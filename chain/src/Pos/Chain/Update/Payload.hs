@@ -11,6 +11,7 @@ import           Control.Monad.Except (MonadError)
 import           Data.Default (Default (..))
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (bprint, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable as Buildable
 import           Serokell.Util.Text (listJson)
 

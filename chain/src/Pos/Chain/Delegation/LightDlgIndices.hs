@@ -8,6 +8,7 @@ import           Universum
 
 import           Data.SafeCopy (SafeCopy (..), contain, safeGet, safePut)
 import           Formatting (bprint)
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable
 import           Serokell.Util (pairF)
 

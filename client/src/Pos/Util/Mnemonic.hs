@@ -50,6 +50,7 @@ import           Data.Default (Default (def))
 import           Data.Swagger (NamedSchema (..), ToSchema (..), maxItems,
                      minItems)
 import           Formatting (bprint, build, formatToString, (%))
+import           Formatting.Buildable (Buildable)
 import           Pos.Binary (serialize')
 import           Pos.Crypto (AesKey (..))
 import           Pos.Infra.Util.LogSafe (SecureLog)

@@ -13,6 +13,7 @@ import           Data.Aeson.TH (deriveJSON)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Data.Time.Units (Millisecond)
 import           Formatting (bprint, build, int, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable as Buildable
 import           Serokell.Data.Memory.Units (Byte, memory)
 import           Text.JSON.Canonical (FromJSON (..), ToJSON (..), fromJSField,

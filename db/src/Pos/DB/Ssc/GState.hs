@@ -11,6 +11,7 @@ import           Universum
 import           Data.Default (def)
 import qualified Database.RocksDB as Rocks
 import           Formatting (bprint, build, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable
 
 import           Pos.Binary.Class (serialize')

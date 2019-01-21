@@ -14,6 +14,7 @@ import           Universum
 import           Control.Lens (ix)
 import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (Microsecond, Second, fromMicroseconds)
+import           Fmt (pretty)
 import           Formatting (Format, bprint, build, fixed, int, now, sformat,
                      shown, (%))
 import           Serokell.Util (enumerate, listJson, pairF)

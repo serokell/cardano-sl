@@ -5,6 +5,7 @@ module Pos.DB.Error
        ) where
 
 import           Formatting (bprint, int, stext, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable
 import           Universum
 

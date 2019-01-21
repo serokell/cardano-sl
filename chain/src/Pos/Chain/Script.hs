@@ -29,6 +29,7 @@ import qualified Data.ByteArray as BA
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Set as S
 import qualified Elaboration.Contexts as PL
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable as Buildable
 import qualified Interface.Integration as PL
 import qualified Interface.Prelude as PL

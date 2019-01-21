@@ -12,6 +12,7 @@ import           Universum
 import           Control.DeepSeq (NFData)
 import           Control.Exception.Safe (Exception (..))
 import           Data.Text.Lazy.Builder (Builder, fromText)
+import           Fmt (pretty)
 import           Formatting (bprint, stext, (%))
 import           Formatting.Buildable (Buildable (..))
 import           GHC.Generics (Generic)
@@ -39,7 +40,7 @@ renderRollbackException = \case
         tipMismatchMsg "rollback" storedTip attemptedTip
 
 instance Exception RollbackException where
-    displayException = toString . pretty
+    displayException = toString @Text . pretty
 
 instance Buildable RollbackException where
     build = renderRollbackException
@@ -63,7 +64,7 @@ renderApplyBlocksException = \case
     ApplyBlocksError e -> fromText e
 
 instance Exception ApplyBlocksException where
-    displayException = toString . pretty
+    displayException = toString @Text . pretty
 
 instance Buildable ApplyBlocksException where
     build = renderApplyBlocksException
@@ -73,7 +74,7 @@ data VerifyBlocksException
     deriving (Show, Generic)
 
 instance Exception VerifyBlocksException where
-    displayException = toString . pretty
+    displayException = toString @Text . pretty
 
 instance Buildable VerifyBlocksException where
     build = renderVerifyBlocksException

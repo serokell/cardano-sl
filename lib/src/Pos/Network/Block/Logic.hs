@@ -22,6 +22,7 @@ import           Control.Exception.Safe (Exception (..))
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as M
 import           Formatting (bprint, build, sformat, shown, stext, (%))
+import           Fmt (pretty)
 import qualified Formatting.Buildable as B
 import           Serokell.Util.Text (listJson)
 import qualified System.Metrics.Gauge as Metrics
@@ -83,7 +84,7 @@ instance B.Buildable BlockNetLogicException where
 instance Exception BlockNetLogicException where
     toException = cardanoExceptionToException
     fromException = cardanoExceptionFromException
-    displayException = toString . pretty
+    displayException = toString @Text . pretty
 
 ----------------------------------------------------------------------------
 -- Recovery

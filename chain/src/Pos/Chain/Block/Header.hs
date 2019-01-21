@@ -74,7 +74,9 @@ import           Control.Lens (Getter, LensLike', makeLenses, makePrisms, to)
 import           Control.Monad.Except (MonadError (throwError))
 import           Data.SafeCopy (SafeCopy (..), contain, safeGet, safePut)
 import qualified Data.Serialize as Cereal
+import           Fmt (pretty)
 import           Formatting (Format, bprint, build, int, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable as Buildable
 
 import           Pos.Binary.Class (Bi (..), decodeListLenCanonicalOf,

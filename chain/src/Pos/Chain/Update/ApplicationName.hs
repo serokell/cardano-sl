@@ -12,6 +12,7 @@ import           Data.Aeson.TH (defaultOptions, deriveToJSON)
 import           Data.Char (isAscii)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Data.Text as T
+import           Formatting.Buildable (Buildable)
 
 import           Pos.Binary.Class (Bi (..))
 

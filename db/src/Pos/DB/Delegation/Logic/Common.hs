@@ -18,6 +18,7 @@ module Pos.DB.Delegation.Logic.Common
 import           Universum
 
 import           Control.Exception.Safe (Exception (..))
+import           Fmt (pretty)
 import           Formatting (bprint, stext, (%))
 import qualified Formatting.Buildable as B
 import           UnliftIO (MonadUnliftIO)
@@ -44,7 +45,7 @@ data DelegationError =
 instance Exception DelegationError where
     toException = cardanoExceptionToException
     fromException = cardanoExceptionFromException
-    displayException = toString . pretty
+    displayException = toString @Text . pretty
 
 instance B.Buildable DelegationError where
     build (DelegationCantApplyBlocks msg) =

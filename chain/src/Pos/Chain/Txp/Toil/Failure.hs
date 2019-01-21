@@ -13,6 +13,7 @@ module Pos.Chain.Txp.Toil.Failure
 import           Universum
 
 import           Formatting (bprint, build, int, ords, shown, stext, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable
 import           GHC.TypeLits (TypeError)
 import           Serokell.Data.Memory.Units (Byte, memory)

@@ -7,6 +7,7 @@ module Pos.Chain.Ssc.SharesDistribution
 import           Universum hiding (id)
 
 import           Formatting (bprint, build, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable as Buildable
 
 import           Pos.Core.Common (StakeholderId)

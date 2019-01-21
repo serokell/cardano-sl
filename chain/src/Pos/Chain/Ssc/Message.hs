@@ -21,6 +21,7 @@ import           Universum
 
 import           Control.Lens (makePrisms)
 import           Formatting (bprint, build, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable as Buildable
 
 import           Pos.Chain.Ssc.Commitment (SignedCommitment)

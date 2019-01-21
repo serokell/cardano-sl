@@ -31,6 +31,7 @@ import qualified Data.ByteString.Lazy as LBS
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Data.Text as T
 import           Formatting (Format, bprint, build, builder, int, sformat, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable as Buildable
 import qualified Serokell.Util.Base16 as B16
 import           Serokell.Util.Text (listJson)

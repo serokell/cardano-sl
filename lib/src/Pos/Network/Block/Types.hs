@@ -13,6 +13,7 @@ module Pos.Network.Block.Types
        ) where
 
 import           Formatting (bprint, build, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable
 import           Serokell.Util.Text (listJson)
 import           Universum

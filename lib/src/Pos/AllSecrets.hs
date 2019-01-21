@@ -21,6 +21,7 @@ import           Universum
 import           Control.Lens.TH (makeClassy)
 import qualified Data.HashMap.Strict as HM
 import           Formatting (bprint, int, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable
 import           Serokell.Util (listJson, mapJson)
 

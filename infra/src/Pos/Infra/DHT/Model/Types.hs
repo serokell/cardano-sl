@@ -21,6 +21,7 @@ import           Universum
 
 import qualified Data.ByteString as BS
 import           Data.Hashable (Hashable (..))
+import           Fmt (pretty)
 import           Formatting (bprint, (%))
 import qualified Formatting as F
 import           Formatting.Buildable (Buildable (..))
@@ -77,7 +78,7 @@ instance Buildable DHTKey where
     build (DHTKey (HashId bs)) = build (B64.encodeUrl bs)
 
 instance Show DHTKey where
-    show = toString . pretty
+    show = pretty
 
 -- | DHT node.
 data DHTNode

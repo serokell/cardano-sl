@@ -43,6 +43,7 @@ library
                      , containers
                      , cryptonite
                      , data-default
+                     , fmt
                      , formatting
                      , lens
                      , memory

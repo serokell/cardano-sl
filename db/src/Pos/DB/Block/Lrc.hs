@@ -19,6 +19,7 @@ import           Data.Coerce (coerce)
 import           Data.Conduit (ConduitT, runConduitRes, (.|))
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
+import           Fmt (pretty)
 import           Formatting (build, sformat, (%))
 import qualified System.Metrics.Counter as Metrics
 import           UnliftIO (MonadUnliftIO)

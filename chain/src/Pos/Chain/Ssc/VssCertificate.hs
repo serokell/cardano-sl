@@ -24,6 +24,7 @@ import           Data.Aeson.TH (deriveJSON)
 import           Data.Hashable (Hashable (..))
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (bprint, build, int, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable as Buildable
 import           Text.JSON.Canonical (FromJSON (..), Int54, JSValue (..),
                      ToJSON (..), fromJSField, mkObject)

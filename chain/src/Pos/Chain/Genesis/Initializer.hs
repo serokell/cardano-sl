@@ -12,6 +12,7 @@ import           Data.Aeson.Options (defaultOptions)
 import           Data.Aeson.TH (deriveJSON)
 import           Fmt (genericF)
 import           Formatting (bprint, build, fixed, int, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable as Buildable
 
 import           Pos.Core.Common (CoinPortion)

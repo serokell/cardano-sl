@@ -15,6 +15,7 @@ import           Universum
 
 import qualified Database.RocksDB as Rocks
 import           Formatting (bprint)
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable
 import           Serokell.Util.Text (listJson)
 

@@ -13,6 +13,7 @@ import qualified Data.Aeson.Options as S (defaultOptions)
 import           Data.Aeson.TH (deriveJSON)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (Format, bprint, build, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable as Buildable
 import           Text.JSON.Canonical (FromJSON (..), ToJSON (..), fromJSField,
                      mkObject)

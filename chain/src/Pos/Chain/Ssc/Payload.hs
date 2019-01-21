@@ -11,6 +11,7 @@ import qualified Data.HashMap.Strict as HM
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Data.Text.Lazy.Builder (Builder)
 import           Formatting (Format, bprint, int, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable as Buildable
 import           Serokell.Util (listJson)
 

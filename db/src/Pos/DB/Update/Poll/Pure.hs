@@ -14,6 +14,7 @@ import           Universum
 import           Control.Lens (at, mapped, to, uses, (%=), (.=))
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet as HS
+import           Fmt (pretty)
 
 import           Pos.Chain.Update (BlockVersionState (..),
                      DecidedProposalState (..), MonadPoll (..),

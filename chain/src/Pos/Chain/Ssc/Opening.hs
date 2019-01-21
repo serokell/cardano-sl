@@ -5,6 +5,7 @@ module Pos.Chain.Ssc.Opening
 import           Universum
 
 import           Data.SafeCopy (base, deriveSafeCopySimple)
+import           Formatting.Buildable (Buildable)
 
 import           Pos.Binary.Class (AsBinary, Bi (..))
 import           Pos.Crypto (Secret)

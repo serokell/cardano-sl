@@ -6,6 +6,8 @@ module Pos.Chain.Txp.Error
 
 import           Control.Exception.Safe (Exception (..))
 import           Formatting (bprint, stext, (%))
+import           Formatting.Buildable (Buildable)
+import           Fmt (pretty)
 import qualified Formatting.Buildable
 import           Universum
 
@@ -20,7 +22,7 @@ data TxpError
 instance Exception TxpError where
     toException = cardanoExceptionToException
     fromException = cardanoExceptionFromException
-    displayException = toString . pretty
+    displayException = toString @Text . pretty
 
 instance Buildable TxpError where
     build (TxpInternalError msg) =

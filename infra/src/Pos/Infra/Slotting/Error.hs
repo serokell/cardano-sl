@@ -7,7 +7,9 @@ module Pos.Infra.Slotting.Error
 import           Universum
 
 import           Control.Exception.Safe (Exception (..))
+import           Fmt (pretty)
 import           Formatting (bprint, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable
 
 import           Pos.Core.Exception (cardanoExceptionFromException,
@@ -25,4 +27,4 @@ instance Buildable SlottingError where
 instance Exception SlottingError where
     toException = cardanoExceptionToException
     fromException = cardanoExceptionFromException
-    displayException = toString . pretty
+    displayException = pretty

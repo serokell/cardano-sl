@@ -24,6 +24,7 @@ import           Control.Monad.Except (mapExceptT, runExceptT, throwError)
 import           Control.Monad.Morph (generalize, hoist)
 import           Data.Default (Default (def))
 import qualified Data.HashMap.Strict as HM
+import           Fmt (pretty)
 import           Formatting (build, sformat, (%))
 
 import           Pos.Chain.Block (HeaderHash)

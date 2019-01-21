@@ -10,6 +10,7 @@ import           Universum
 import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (bprint, shown)
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable as Buildable
 import qualified Prelude
 

@@ -11,6 +11,7 @@ import           Universum
 import           Control.Monad.Except (MonadError)
 import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import           Formatting (Format, bprint, build, later, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable as Buildable
 import           Serokell.Util.Text (listJsonIndent)
 

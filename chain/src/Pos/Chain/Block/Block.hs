@@ -61,7 +61,9 @@ import           Universum
 import           Control.Lens (Getter, choosing, makeLenses, to)
 import           Control.Monad.Except (MonadError (throwError))
 import           Data.SafeCopy (SafeCopy (..), contain, safeGet, safePut)
+import           Fmt (pretty)
 import           Formatting (bprint, build, int, sformat, stext, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable as Buildable
 import           Serokell.Util (Color (Magenta), colorize, listJson)
 

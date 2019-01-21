@@ -37,6 +37,7 @@ import qualified Data.HashSet as HS
 import qualified Data.Map as M
 import qualified Database.RocksDB as Rocks
 import           Formatting (bprint, build, sformat, (%))
+import           Formatting (Buildable)
 import qualified Formatting.Buildable
 import           Serokell.Util (Color (Red), colorize)
 import           UnliftIO (MonadUnliftIO)

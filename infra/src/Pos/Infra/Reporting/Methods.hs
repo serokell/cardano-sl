@@ -26,6 +26,7 @@ module Pos.Infra.Reporting.Methods
 import           Universum
 
 import           Control.Exception (ErrorCall (..), Exception (..))
+import           Fmt (pretty)
 
 import           Pos.Core.Exception (CardanoFatalError)
 import           Pos.Core.Reporting (MonadReporting (..), Reporter (..),

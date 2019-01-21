@@ -8,6 +8,7 @@ import           Universum
 
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (bprint, build, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable as Buildable
 
 import           Pos.Binary.Class (Cons (..), Field (..), Raw, deriveSimpleBi)

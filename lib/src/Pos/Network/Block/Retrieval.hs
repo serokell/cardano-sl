@@ -16,6 +16,7 @@ import           Control.Lens (to)
 import           Control.Monad.STM (retry)
 import qualified Data.List.NonEmpty as NE
 import           Data.Time.Units (Second)
+import           Fmt (pretty)
 import           Formatting (build, int, sformat, shown, (%))
 
 import           Pos.Chain.Block (Block, BlockHeader, HasHeaderHash (..),

@@ -57,6 +57,7 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.Text.Encoding as Text (decodeUtf8, encodeUtf8)
 import qualified Data.Text.Internal.Builder as B
 import           Formatting (bprint, build, hex, sformat, shown, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable as B
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Network.Transport (EndPointAddress (..))

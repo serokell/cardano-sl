@@ -15,6 +15,7 @@ module Pos.Chain.Delegation.Cede.Types
 
 import           Control.Lens (makeLenses)
 import           Formatting (bprint, build, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable
 import           Universum
 

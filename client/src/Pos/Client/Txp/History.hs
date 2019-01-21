@@ -32,7 +32,9 @@ import           Control.Exception.Safe (Exception (..))
 import           Control.Lens (makeLenses)
 import           Control.Monad.Trans (MonadTrans)
 import qualified Data.Map.Strict as M (fromList, insert)
+import           Fmt (pretty)
 import           Formatting (bprint, build, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable
 import           Serokell.Util.Text (listJson)
 
@@ -269,7 +271,7 @@ data SaveTxException =
 instance Exception SaveTxException where
     displayException =
         \case
-            SaveTxToilFailure x -> toString (pretty x)
+            SaveTxToilFailure x -> toString @Text (pretty x)
 
 saveTxDefault :: TxHistoryEnv ctx m
               => Genesis.Config

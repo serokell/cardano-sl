@@ -9,6 +9,7 @@ import           Prelude (Show (..))
 import           Universum hiding (Show)
 
 import           Formatting (bprint, build, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable as Buildable
 import           Node (Message)
 

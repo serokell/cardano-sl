@@ -19,6 +19,7 @@ import           Universum
 import qualified Control.Concurrent.STM as STM
 import           Control.Monad.Except (runExceptT, throwError)
 import           Formatting (bprint, build, sformat, stext, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable
 
 import           Pos.Core (BlockCount, SlotCount, SlotId, epochOrSlotG,

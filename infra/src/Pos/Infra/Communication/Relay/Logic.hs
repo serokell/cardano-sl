@@ -35,6 +35,7 @@ import           Data.Proxy (asProxyTypeOf)
 import           Data.Tagged (Tagged, tagWith)
 import           Data.Typeable (typeRep)
 import           Formatting (build, sformat, shown, stext, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Node.Message.Class (Message)
 import           Universum

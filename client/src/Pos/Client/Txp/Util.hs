@@ -61,6 +61,7 @@ import qualified Data.Set as Set
 import           Data.Traversable (for)
 import qualified Data.Vector as V
 import           Formatting (bprint, build, sformat, stext, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable
 import           Serokell.Util (listJson)
 

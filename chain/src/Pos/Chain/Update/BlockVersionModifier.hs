@@ -14,6 +14,7 @@ import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Data.Text.Lazy.Builder (Builder)
 import           Data.Time.Units (Millisecond)
 import           Formatting (Format, bprint, build, int, later, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable as Buildable
 import           Serokell.Data.Memory.Units (Byte, memory)
 

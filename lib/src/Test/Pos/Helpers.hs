@@ -13,6 +13,7 @@ import           Universum
 
 import           Data.Functor.Identity (Identity (..))
 import           Data.Typeable (typeRep)
+import           Fmt (pretty)
 import           Test.Hspec (Spec)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (Gen, Property, forAll, (.&&.), (===))

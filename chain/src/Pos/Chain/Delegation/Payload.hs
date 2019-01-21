@@ -9,6 +9,7 @@ import           Control.Monad.Except (MonadError, throwError)
 import           Data.Default (Default (def))
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (bprint, int, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable
 import           Serokell.Util (allDistinct, listJson)
 

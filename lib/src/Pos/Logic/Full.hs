@@ -12,6 +12,7 @@ import           Control.Lens (at, to)
 import           Data.Conduit (ConduitT)
 import qualified Data.HashMap.Strict as HM
 import           Data.Tagged (Tagged (..), tagWith)
+import           Formatting.Buildable (Buildable)
 import           Formatting (build, sformat, (%))
 
 import           Pos.Chain.Block (Block, BlockHeader, HasBlockConfiguration,

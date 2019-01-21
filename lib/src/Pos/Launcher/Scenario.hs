@@ -13,6 +13,7 @@ module Pos.Launcher.Scenario
 import           Universum
 
 import qualified Data.HashMap.Strict as HM
+import           Fmt (pretty)
 import           Formatting (bprint, build, int, sformat, shown, (%))
 import           Serokell.Util (listJson)
 

@@ -9,6 +9,7 @@ module Pos.Web.Types
 import           Universum
 
 import           Data.Aeson.TH (defaultOptions, deriveToJSON)
+import           Formatting.Buildable (Buildable)
 
 -- | Stages of SSC.
 -- Also called GodTossing algorithm.
