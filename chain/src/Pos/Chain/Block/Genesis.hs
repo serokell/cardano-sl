@@ -33,6 +33,7 @@ import           Control.Monad.Except (MonadError)
 import           Data.SafeCopy (SafeCopy (..), base, contain,
                      deriveSafeCopySimple, safeGet, safePut)
 import           Formatting (bprint, build, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable as Buildable
 
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..),

@@ -14,6 +14,7 @@ import           Control.Monad.Except (MonadError (throwError))
 import qualified Data.Aeson as Aeson (FromJSON (..), ToJSON (..))
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (bprint, float, int, sformat, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable as Buildable
 import           Text.JSON.Canonical (FromJSON (..), ReportSchemaErrors,
                      ToJSON (..))

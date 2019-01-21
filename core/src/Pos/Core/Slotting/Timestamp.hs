@@ -24,6 +24,7 @@ import           Data.Time.Clock.POSIX (POSIXTime, posixSecondsToUTCTime,
                      utcTimeToPOSIXSeconds)
 import           Data.Time.Units (Microsecond, Second, convertUnit)
 import           Formatting (Format, build)
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable as Buildable
 import           Numeric.Lens (dividing)
 import           Pos.Core.Conc (currentTime)

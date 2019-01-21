@@ -7,6 +7,7 @@ import           Universum
 import qualified Data.Aeson as Aeson
 import           Data.Fixed (Fixed (..), Nano, resolution, showFixed)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable as Buildable
 import           Text.JSON.Canonical (FromJSON (..), ReportSchemaErrors,
                      ToJSON (..))

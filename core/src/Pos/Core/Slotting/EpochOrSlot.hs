@@ -28,6 +28,7 @@ import           Universum
 
 import           Control.Lens (Getter, lens, to)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable as Buildable
 import           Pos.Util.Some (Some, applySome)
 

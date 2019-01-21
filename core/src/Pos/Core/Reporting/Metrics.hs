@@ -15,6 +15,7 @@ module Pos.Core.Reporting.Metrics
 import           Universum
 
 import           Data.Time.Units (Microsecond)
+import           Formatting.Buildable (Buildable)
 import           Formatting (Format, build, sformat)
 import qualified System.Metrics as Metrics
 import           System.Metrics.Gauge (Gauge)

@@ -26,7 +26,7 @@ data SchemaError = SchemaError
     , seActual   :: !(Maybe Text)
     } deriving (Show)
 
-instance Buildable SchemaError where
+instance Buildable.Buildable SchemaError where
     build se = mconcat
         [ "expected " <> Builder.fromText (seExpected se)
         , case seActual se of

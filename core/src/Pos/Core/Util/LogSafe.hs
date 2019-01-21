@@ -61,6 +61,7 @@ import           Data.Foldable (length, null)
 import           Data.Reflection (Reifies (..), reify)
 import           Data.Text.Lazy.Builder (Builder)
 import           Formatting (bprint, build, fconst, later, mapf, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable
 import           Formatting.Internal (Format (..))
 import qualified Language.Haskell.TH as TH

@@ -14,6 +14,7 @@ import           Data.Hashable (Hashable)
 import qualified Data.HashMap.Strict as HM.S
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (bprint, build, shown, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable as Buildable
 import           Text.JSON.Canonical (FromJSON (..), ReportSchemaErrors,
                      ToJSON (..), fromJSField, mkObject)

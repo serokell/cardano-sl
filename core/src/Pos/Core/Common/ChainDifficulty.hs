@@ -8,6 +8,7 @@ import           Universum
 
 import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
+import           Formatting.Buildable (Buildable)
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Core.Common.BlockCount
@@ -36,4 +37,3 @@ deriveSimpleBi ''ChainDifficulty [
     ]]
 
 deriveSafeCopySimple 0 'base ''ChainDifficulty
-

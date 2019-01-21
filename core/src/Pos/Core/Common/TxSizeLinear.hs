@@ -11,6 +11,7 @@ import qualified Data.Aeson as Aeson
 import           Data.Fixed (Nano)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (bprint, build, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable as Buildable
 import           Serokell.Data.Memory.Units (Byte, toBytes)
 

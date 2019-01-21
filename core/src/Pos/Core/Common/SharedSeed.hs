@@ -10,6 +10,7 @@ import qualified Data.ByteString.Char8 as BSC (pack)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import qualified Data.Semigroup (Semigroup (..))
 import           Formatting (formatToString)
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable as Buildable
 import           Serokell.Util.Base16 (base16F, formatBase16)
 import qualified Serokell.Util.Base16 as B16

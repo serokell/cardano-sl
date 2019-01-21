@@ -11,6 +11,7 @@ import           Universum
 import           Data.Aeson (Value (..))
 import           Data.HashMap.Strict (singleton)
 import           Data.Time.Units (Microsecond, toMicroseconds)
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable as Buildable
 import qualified Prelude
 

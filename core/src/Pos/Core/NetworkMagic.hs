@@ -8,6 +8,7 @@ import           Universum
 import           Data.SafeCopy (SafeCopy (..), contain, safeGet, safePut)
 import           Data.Serialize (getWord8, putWord8)
 import           Formatting (bprint, build, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable as Buildable
 
 import           Pos.Crypto.Configuration (ProtocolMagic (..),

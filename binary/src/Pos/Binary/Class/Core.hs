@@ -75,6 +75,7 @@ import qualified Data.Vector.Generic as Vector.Generic
 import           Foreign.Storable (sizeOf)
 import           Formatting (bprint, build, shown, string, (%))
 import qualified Formatting.Buildable
+import           Formatting.Buildable (Buildable)
 import qualified GHC.Generics as G
 import           Serokell.Data.Memory.Units (Byte, fromBytes, toBytes)
 

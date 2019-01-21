@@ -13,6 +13,7 @@ import qualified Data.Aeson as Aeson (FromJSON (..), ToJSON (..))
 import           Data.Ix (Ix)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (bprint, int, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable as Buildable
 import           Servant.API (FromHttpApiData)
 import           Text.JSON.Canonical (FromJSON (..), ReportSchemaErrors,

@@ -186,20 +186,6 @@ packages:
     commit: ecfd3b307d8d13a6d12aff03055f25a39a17e182
   extra-dep: true
 
-# Custom Universum prelude, that brings back some of the
-# formatting logic, as well as `pretty`.
-- location:
-    git: https://github.com/input-output-hk/universum.git
-    commit: 7f1b2483f71cacdfd032fe447064d6e0a1df50fc
-  extra-dep: true
-
-
-# Need to adjust version bounds on serokell-util.
-# serokell-util has an upper bound preventing 6.3 for some reason
-- location:
-    git: https://github.com/input-output-hk/serokell-util.git
-    commit: 4ead9809e119483e7832da5f8224b0c4d4a2d5d6
-  extra-dep: true
 
 nix:
   shell-file: nix/stack-shell.nix
@@ -217,7 +203,7 @@ extra-deps:
 - lifted-async-0.10.0.1
 
 # Serokell-specific utilities not on stackage
-- fmt-0.6
+- fmt-0.6.1.1
 
 # Following 10 are not on stackage.
 - pvss-0.2.0
@@ -289,6 +275,11 @@ extra-deps:
 
 - fsnotify-0.2.1.2
 - hinotify-0.3.10
+
+# In Serokell, we use our own universum and serokell-util
+- universum-1.2.0
+- serokell-util-0.10.0
+- o-clock-1.0.0.1
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything

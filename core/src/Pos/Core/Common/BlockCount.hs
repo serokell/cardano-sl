@@ -6,6 +6,7 @@ import           Universum
 
 import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
+import           Formatting.Buildable (Buildable)
 import           System.Random (Random (..))
 
 import           Pos.Binary.Class (Bi (..))

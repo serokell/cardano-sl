@@ -5,6 +5,7 @@ module Pos.Chain.Block.Util
 import           Universum
 
 import           Control.Monad.Except (MonadError (..))
+import           Formatting.Buildable (Buildable)
 import           Formatting (build, sformat, (%))
 
 checkBodyProof

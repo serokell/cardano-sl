@@ -27,6 +27,7 @@ import           Control.Lens (Iso', iso, lens, makeLensesFor)
 import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (Format, bprint, build, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable as Buildable
 
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)

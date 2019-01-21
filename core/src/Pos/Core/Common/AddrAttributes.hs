@@ -10,6 +10,7 @@ import qualified Data.ByteString.Lazy as LBS
 import           Data.SafeCopy (SafeCopy (..), contain, safeGet, safePut)
 import qualified Data.Serialize as Cereal
 import           Formatting (bprint, build, builder, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable as Buildable
 
 import           Pos.Binary.Class (Bi, decode, encode)

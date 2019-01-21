@@ -56,6 +56,7 @@ import           Data.Reflection (reifyNat)
 import           Data.SafeCopy (SafeCopy (..))
 import           Formatting (Format, bprint, fitLeft, later, sformat, (%.))
 import qualified Formatting.Buildable as Buildable
+import           Formatting.Buildable (Buildable)
 import qualified Prelude
 import qualified Serokell.Util.Base16 as B16
 import           System.IO.Unsafe (unsafeDupablePerformIO)

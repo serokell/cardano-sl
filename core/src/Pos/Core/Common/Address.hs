@@ -69,6 +69,7 @@ import           Data.Hashable (Hashable (..))
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (Format, bprint, build, builder, formatToString,
                      later, sformat, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable as Buildable
 import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util (listJson)

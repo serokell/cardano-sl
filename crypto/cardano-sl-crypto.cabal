@@ -53,6 +53,7 @@ library
                      , cryptonite
                      , cryptonite-openssl >= 0.7
                      , data-default
+                     , fmt
                      , formatting
                      , hashable
                      , lens

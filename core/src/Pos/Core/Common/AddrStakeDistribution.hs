@@ -12,7 +12,9 @@ import           Control.Lens (_Left)
 import           Control.Monad.Except (MonadError (throwError))
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (bprint, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable as Buildable
+import           Fmt (pretty)
 import           Serokell.Util (mapJson)
 
 import           Pos.Binary.Class (Bi (..), szCases)
@@ -94,7 +96,7 @@ instance Buildable MultiKeyDistrError where
         MkdSumNot1 -> "distributions' sum must be equal to 1"
 
 instance Exception MultiKeyDistrError where
-    displayException = toString . pretty
+    displayException = toString @Text . pretty
 
 -- | Safe constructor of multi-key distribution. It checks invariants
 -- of this distribution and returns an error if something is violated.

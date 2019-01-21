@@ -13,6 +13,7 @@ import           Control.Monad.Except (MonadError)
 import qualified Data.Aeson as Aeson (FromJSON (..), ToJSON (..))
 import           Data.SafeCopy (SafeCopy (..), contain, safeGet, safePut)
 import           Formatting (bprint, build)
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable
 import           Text.JSON.Canonical (FromJSON (..), Int54, JSValue (..),
                      ToJSON (..), fromJSField, mkObject)

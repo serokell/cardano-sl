@@ -36,7 +36,7 @@ data CompileTimeInfo = CompileTimeInfo
     { ctiGitRevision :: Text
     } deriving (Show)
 
-instance Buildable CompileTimeInfo where
+instance Formatting.Buildable.Buildable CompileTimeInfo where
     build CompileTimeInfo{..} =
         bprint ("Compile time info: git revision '"%stext%"'") ctiGitRevision
 

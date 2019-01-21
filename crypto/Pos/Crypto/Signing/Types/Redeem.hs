@@ -30,6 +30,8 @@ import qualified Data.Text.Lazy.Builder as Builder (fromText)
 import           Formatting (Format, bprint, fitLeft, formatToString, later,
                      sformat, (%), (%.))
 import qualified Formatting.Buildable as B
+import           Formatting.Buildable (Buildable)
+import           Fmt (pretty)
 import           Serokell.Util.Base64 (formatBase64)
 import qualified Serokell.Util.Base64 as B64
 import           Text.JSON.Canonical (FromObjectKey (..), JSValue (..),
@@ -54,7 +56,7 @@ instance Monad m => ToObjectKey m RedeemPublicKey where
 instance ReportSchemaErrors m => FromObjectKey m RedeemPublicKey where
     fromObjectKey =
         fmap Just .
-        tryParseString (over _Left pretty . fromAvvmPk) .
+        tryParseString (over _Left (pretty @_ @Text) . fromAvvmPk) .
         JSString
 
 instance ToJSONKey RedeemPublicKey where
@@ -132,7 +134,7 @@ instance Buildable AvvmPkError where
             ", expected 32, can't be redeeming pk"
 
 instance Exception AvvmPkError where
-    displayException = toString . pretty
+    displayException = toString @Text . pretty
 
 -- | Read the text into a redeeming public key. The key should be in
 -- AVVM format which is base64(url). This function must be inverse of

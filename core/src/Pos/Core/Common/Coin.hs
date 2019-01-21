@@ -31,6 +31,7 @@ import qualified Data.Aeson as Aeson (FromJSON (..), ToJSON (..))
 import           Data.Data (Data)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (Format, bprint, build, int, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable
 import qualified Text.JSON.Canonical as Canonical (FromJSON (..),
                      ReportSchemaErrors, ToJSON (..))

@@ -12,6 +12,7 @@ import           Data.Aeson (FromJSON (..), ToJSON (toJSON), object, withObject,
                      (.:), (.=))
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (bprint, int, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable as Buildable
 import qualified PlutusCore.Program as PLCore
 import           Serokell.Util.Base64 (JsonByteString (..))

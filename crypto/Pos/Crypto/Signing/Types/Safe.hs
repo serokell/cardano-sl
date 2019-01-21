@@ -24,6 +24,7 @@ import           Data.Default (Default (..))
 import           Data.Semigroup (Semigroup)
 import           Formatting (int, sformat, (%))
 import           Formatting.Buildable (build)
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable as B
 import qualified Prelude
 import           Universum

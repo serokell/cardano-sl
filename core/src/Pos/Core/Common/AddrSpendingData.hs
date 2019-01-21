@@ -9,6 +9,7 @@ import           Universum
 import qualified Data.ByteString.Lazy as LBS
 import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (bprint, build, int, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable as Buildable
 
 import           Pos.Binary.Class (Bi (..), Case (..), szCases)

@@ -15,7 +15,9 @@ module Pos.Core.Exception
 import           Control.Exception.Safe (Exception (..))
 import           Data.Typeable (cast)
 import           Formatting (bprint, stext, (%))
+import           Formatting.Buildable (Buildable)
 import qualified Formatting.Buildable
+import           Fmt (pretty)
 import           Pos.Util.Wlog (WithLogger, logError)
 import           Serokell.Util (Color (Red), colorize)
 import qualified Text.Show
@@ -28,7 +30,7 @@ data CardanoException =
     deriving (Typeable)
 
 instance Show CardanoException where
-    show (CardanoException e) = toString . pretty $ e
+    show (CardanoException e) = toString @Text . pretty $ e
 
 instance Exception CardanoException
 
@@ -61,7 +63,7 @@ instance Buildable CardanoFatalError where
 instance Exception CardanoFatalError where
     toException = cardanoExceptionToException
     fromException = cardanoExceptionFromException
-    displayException = toString . pretty
+    displayException = toString @Text . pretty
 
 -- | Print red message about fatal error and throw exception.
 reportFatalError

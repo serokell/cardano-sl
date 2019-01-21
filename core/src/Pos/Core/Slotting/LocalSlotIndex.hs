@@ -23,6 +23,7 @@ import           Control.Monad.Except (MonadError (throwError))
 import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import           Data.Ix (Ix)
 import           Data.SafeCopy (base, deriveSafeCopySimple)
+import           Formatting.Buildable (Buildable)
 import           System.Random (Random (..))
 
 import           Pos.Binary.Class (Bi (..))

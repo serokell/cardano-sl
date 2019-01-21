@@ -48,7 +48,7 @@ import           Data.Time.Units (Attosecond, Day, Femtosecond, Fortnight, Hour,
 import           Data.Typeable (typeRep)
 import qualified Ether
 import qualified Formatting as F
-import           Formatting.Buildable (build)
+import           Formatting.Buildable (Buildable, build)
 import qualified Language.Haskell.TH.Syntax as TH
 import           Serokell.Data.Memory.Units (Byte, fromBytes, toBytes)
 

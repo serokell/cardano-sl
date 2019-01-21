@@ -106,6 +106,8 @@ import           Data.Time.Units (Microsecond, fromMicroseconds, toMicroseconds)
 import qualified Ether
 import           Ether.Internal (HasLens (..))
 import qualified Formatting as F
+import           Formatting.Buildable (Buildable)
+import           Fmt (pretty)
 import           GHC.TypeLits (ErrorMessage (..))
 import qualified Language.Haskell.TH as TH
 import           Pos.Util.Wlog (LoggerName, WithLogger, logDebug, logError,
@@ -338,7 +340,7 @@ logException name action = E.withException action handler
         let message = "logException: " <> pretty exc
         usingLoggerName name (logError message) `E.catchAny` \loggingExc -> do
             putStrLn message
-            putStrLn $
+            putTextLn $
                 "logException failed to use logging: " <> pretty loggingExc
 
 -- | 'bracket' which logs given message after acquiring the resource

@@ -42,6 +42,7 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as M
 import           Formatting (bprint, (%))
 import qualified Formatting.Buildable
+import           Formatting.Buildable (Buildable)
 import           GHC.Generics (Generic)
 import           Serokell.Util (listJson, pairF)
 
