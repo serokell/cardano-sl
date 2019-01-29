@@ -1,7 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE RankNTypes          #-}
 
-{-# OPTIONS_GHC -fno-warn-orphans #-}
 -- Need this to avoid a warning on the `typeName` helper function.
 {-# OPTIONS_GHC -Wno-redundant-constraints #-}
 
@@ -14,15 +13,16 @@ import           Universum
 
 import           Data.Functor.Identity (Identity (..))
 import           Data.Typeable (typeRep)
+import           Fmt (pretty)
 import           Test.Hspec (Spec)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (Gen, Property, forAll, (.&&.), (===))
 import qualified Text.JSON.Canonical as CanonicalJSON
 
-import           Pos.Core.Genesis ()
 import           Pos.Util.Json.Canonical (SchemaError)
 
-import           Test.Pos.Binary.Helpers (IdTestingRequiredClassesAlmost, identityTest)
+import           Test.Pos.Binary.Helpers (IdTestingRequiredClassesAlmost,
+                     identityTest)
 
 ----------------------------------------------------------------------------
 -- From/to tests

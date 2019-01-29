@@ -41,7 +41,7 @@ set -o pipefail
 # * Pass --bench-mode to use the configuration used by modern benchmarks.
 
 # Note: this list should be topologically sorted.
-projects="networking binary util crypto core db lrc infra ssc txp update delegation block lib node client generator auxx tools explorer wallet wallet-new"
+projects="networking binary util crypto core db chain infra lib node client generator tools wallet wallet-new"
 
 # Returns name of a stack project to build, given the alias.
 function pkgNameToProject {
@@ -140,7 +140,7 @@ do
   fi
 done
 
-commonargs='--test --no-haddock-deps --bench --jobs=4'
+commonargs='--test --no-haddock-deps --bench --jobs=1'
 norun='--no-run-tests --no-run-benchmarks'
 
 if [[ "$no_nix" == true ]]; then
@@ -203,8 +203,6 @@ elif [[ "$spec_prj" == "wallet" ]]; then
   to_build="cardano-sl-node cardano-sl-wallet"
 elif [[ "$spec_prj" == "wallet-new" ]]; then
   to_build="cardano-sl-node cardano-sl-wallet-new"
-elif [[ "$spec_prj" == "explorer" ]]; then
-  to_build="cardano-sl-node cardano-sl-explorer"
 elif [[ "$spec_prj" == "all" ]]; then
   to_build="" # build everything concurrently
 else

@@ -10,11 +10,14 @@ import           Universum hiding (id)
 import           Control.Exception.Safe (Exception (displayException))
 import           Control.Lens (_Left)
 import           Control.Monad.Except (MonadError (throwError))
-import qualified Data.Text.Buildable as Buildable
+import           Data.SafeCopy (base, deriveSafeCopySimple)
 import           Formatting (bprint, (%))
+import           Formatting.Buildable (Buildable)
+import qualified Formatting.Buildable as Buildable
+import           Fmt (pretty)
 import           Serokell.Util (mapJson)
 
-import           Pos.Binary.Class (Bi, decode, encode)
+import           Pos.Binary.Class (Bi (..), szCases)
 import qualified Pos.Binary.Class as Bi
 import           Pos.Crypto.Hashing (shortHashF)
 import           Pos.Util.Util (cborError, toCborError)
@@ -70,6 +73,13 @@ instance Bi AddrStakeDistribution where
                         pretty tag
             len -> cborError $
                 "decode @AddrStakeDistribution: unexpected length " <> pretty len
+    encodedSizeExpr size _ = szCases
+        [ Bi.Case "BoostrapEraDistr" 1
+        , let SingleKeyDistr id = error "unused"
+          in  Bi.Case "SingleKeyDistr" $ size ((,) <$> pure (0 :: Word8) <*> pure id)
+        , let UnsafeMultiKeyDistr distr = error "unused"
+          in  Bi.Case "UnsafeMultiKeyDistr" $ size ((,) <$> pure (1 :: Word8) <*> pure distr)
+        ]
 
 data MultiKeyDistrError
     = MkdMapIsEmpty
@@ -86,7 +96,7 @@ instance Buildable MultiKeyDistrError where
         MkdSumNot1 -> "distributions' sum must be equal to 1"
 
 instance Exception MultiKeyDistrError where
-    displayException = toString . pretty
+    displayException = toString @Text . pretty
 
 -- | Safe constructor of multi-key distribution. It checks invariants
 -- of this distribution and returns an error if something is violated.
@@ -104,3 +114,5 @@ mkMultiKeyDistr distrMap = UnsafeMultiKeyDistr distrMap <$ check
         let distrSum = sum $ map getCoinPortion distrMap
         unless (distrSum == coinPortionDenominator) $
             throwError MkdSumNot1
+
+deriveSafeCopySimple 0 'base ''AddrStakeDistribution

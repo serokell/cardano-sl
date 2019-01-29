@@ -1,5 +1,5 @@
 name:                cardano-sl-client
-version:             1.3.1
+version:             2.0.0
 synopsis:            Cardano SL client modules
 description:         Cardano SL client modules
 license:             MIT
@@ -26,33 +26,40 @@ library
 
                        Pos.Client.KeyStorage
 
-  build-depends:       base
+                       Pos.Util.Mnemonic
+
+  build-depends:       aeson
+                     , base
+                     , basement
+                     , bytestring
+                     , cardano-crypto
                      , cardano-sl
-                     , cardano-sl-block
+                     , cardano-sl-chain
                      , cardano-sl-core
                      , cardano-sl-crypto
                      , cardano-sl-db
                      , cardano-sl-infra
-                     , cardano-sl-lrc
-                     , cardano-sl-networking
-                     , cardano-sl-txp
-                     , cardano-sl-update
                      , cardano-sl-util
                      , containers
+                     , cryptonite
                      , data-default
+                     , fmt
                      , formatting
                      , lens
-                     , log-warper
+                     , memory
                      , mtl
                      , safe-exceptions
                      , serokell-util
                      , stm
-                     , text-format
+                     , swagger2
+                     , formatting
                      , transformers
                      , universum
                      , unordered-containers
                      , vector
+
                      , QuickCheck
+                     , quickcheck-instances
 
   default-extensions:  DeriveDataTypeable
                        DeriveGeneric
@@ -65,7 +72,6 @@ library
                        DefaultSignatures
                        NoImplicitPrelude
                        OverloadedStrings
-                       RecordWildCards
                        TypeApplications
                        TupleSections
                        ViewPatterns
@@ -76,6 +82,7 @@ library
                        BangPatterns
                        TemplateHaskell
                        ScopedTypeVariables
+                       GADTs
                        MonadFailDesugaring
 
   hs-source-dirs:      src
@@ -102,14 +109,14 @@ test-suite cardano-client-test
                        base
                      , bytestring
                      , cardano-sl
+                     , cardano-sl-chain
+                     , cardano-sl-chain-test
                      , cardano-sl-client
                      , cardano-sl-core
+                     , cardano-sl-core-test
                      , cardano-sl-crypto
                      , cardano-sl-crypto-test
                      , cardano-sl-db
-                     , cardano-sl-ssc
-                     , cardano-sl-txp
-                     , cardano-sl-update
                      , cardano-sl-util
                      , cardano-sl-util-test
                      , containers
@@ -141,7 +148,6 @@ test-suite cardano-client-test
                         DefaultSignatures
                         NoImplicitPrelude
                         OverloadedStrings
-                        RecordWildCards
                         TypeApplications
                         TupleSections
                         ViewPatterns
